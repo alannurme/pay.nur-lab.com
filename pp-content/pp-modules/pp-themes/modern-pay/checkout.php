@@ -1,0 +1,917 @@
+<?php
+    if (!defined('PipraPay_INIT')) {
+        http_response_code(403);
+        exit('Direct access not allowed');
+    }
+
+    if(isset($_GET['lang'])){
+        if($_GET['lang'] !== ""){
+            pp_set_lang($_GET['lang']);
+?>
+            <script>
+                location.href = '?lang=';
+            </script>
+<?php
+            exit();
+        }
+    }
+
+    if(isset($_GET['cancel'])){
+        pp_set_transaction_status($data['transaction']['ref'], 'canceled');
+?>
+        <script>
+            location.href = '<?php echo pp_checkout_address();?>';
+        </script>
+<?php
+        exit();
+    }
+
+    $pp_gateways_mfs = pp_gateways('mfs', $data);
+    $pp_gateways_bank = pp_gateways('bank', $data);
+    $pp_gateways_global = pp_gateways('global', $data);
+
+    $primaryColor = !empty($data['options']['primary_color']) && $data['options']['primary_color'] !== '--' ? $data['options']['primary_color'] : '#4f46e5';
+    $accentColor  = !empty($data['options']['accent_color']) && $data['options']['accent_color'] !== '--' ? $data['options']['accent_color'] : '#06b6d4';
+    $textColor    = !empty($data['options']['text_color']) && $data['options']['text_color'] !== '--' ? $data['options']['text_color'] : '#ffffff';
+    $themeMode    = $data['options']['theme_mode'] ?? 'glassmorphism';
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title><?php echo $data['lang']['checkout']?> - <?php echo htmlspecialchars($data['brand']['name']);?></title>
+    <link rel="shortcut icon" href="<?php echo $data['brand']['favicon'];?>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <?php echo pp_assets('head'); ?>
+
+    <?php
+        $seoTitle = trim($data['options']['seo_title'] ?? '');
+        $seoDesc  = trim($data['options']['seo_description'] ?? '');
+        $seoKey   = trim($data['options']['seo_keywords'] ?? '');
+        $analyticsCode = trim($data['options']['analytics_code'] ?? '');
+
+        if ($seoTitle !== '' && $seoTitle !== '--') {
+            echo '<title>' . htmlspecialchars($seoTitle) . '</title>' . PHP_EOL;
+            echo '<meta name="title" content="' . htmlspecialchars($seoTitle) . '">' . PHP_EOL;
+            echo '<meta property="og:title" content="' . htmlspecialchars($seoTitle) . '">' . PHP_EOL;
+        }
+
+        if ($seoDesc !== '' && $seoDesc !== '--') {
+            echo '<meta name="description" content="' . htmlspecialchars($seoDesc) . '">' . PHP_EOL;
+            echo '<meta property="og:description" content="' . htmlspecialchars($seoDesc) . '">' . PHP_EOL;
+        }
+
+        if ($seoKey !== '' && $seoKey !== '--') {
+            echo '<meta name="keywords" content="' . htmlspecialchars($seoKey) . '">' . PHP_EOL;
+        }
+
+        if ($analyticsCode !== '' && $analyticsCode !== '--') {
+            echo $analyticsCode;
+        }
+
+        $bgStyle = 'background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 50%, #f1f5f9 100%);';
+        if (!empty($data['options']['enable_bg_image']) && $data['options']['enable_bg_image'] === 'enabled' && !empty($data['options']['background_image'])) {
+            $bgImage = $data['options']['background_image'];
+            $bgStyle = "background-image: url('{$bgImage}'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed;";
+        }
+    ?>
+
+    <style>
+        :root {
+            --mp-primary: <?php echo $primaryColor; ?>;
+            --mp-accent: <?php echo $accentColor; ?>;
+            --mp-text-btn: <?php echo $textColor; ?>;
+            --mp-card-bg: rgba(255, 255, 255, 0.94);
+            --mp-card-border: rgba(226, 232, 240, 0.9);
+            --mp-card-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07), 0 0 1px 1px rgba(0, 0, 0, 0.04);
+            --mp-radius: 20px;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            color: #1e293b;
+            <?= $bgStyle ?>
+            margin: 0;
+            padding: 20px 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mp-container {
+            max-width: 580px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .mp-card {
+            background: var(--mp-card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--mp-card-border);
+            border-radius: var(--mp-radius);
+            box-shadow: var(--mp-card-shadow);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .mp-topbar {
+            padding: 14px 20px;
+            background: rgba(248, 250, 252, 0.8);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .mp-icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .mp-amount-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 5px 12px;
+            background: #f1f5f9;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            white-space: nowrap;
+            flex-shrink: 1;
+            min-width: 0;
+        }
+
+        .mp-amount-badge span.amount {
+            color: var(--mp-primary);
+            font-size: 0.95rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .mp-icon-btn:hover {
+            background: var(--mp-primary);
+            border-color: var(--mp-primary);
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px <?php echo pp_hexToRgba($primaryColor, 0.25); ?>;
+        }
+
+        .mp-icon-btn.active {
+            background: var(--mp-primary);
+            border-color: var(--mp-primary);
+            color: #ffffff;
+        }
+
+        .mp-body {
+            padding: 24px 24px;
+        }
+
+        .mp-brand-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .mp-logo-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+
+        .mp-brand-logo {
+            width: 72px;
+            height: 72px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 3px solid #ffffff;
+            box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.12);
+        }
+
+        .mp-brand-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.02em;
+        }
+
+        .mp-brand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: <?php echo pp_hexToRgba($primaryColor, 0.08); ?>;
+            color: var(--mp-primary);
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 20px;
+        }
+
+        .mp-nav-pills {
+            display: flex;
+            gap: 8px;
+            background: #f1f5f9;
+            padding: 5px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+        }
+
+        .mp-nav-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+        }
+
+        .mp-nav-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .mp-nav-btn.active {
+            background: #ffffff;
+            color: var(--mp-primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        .mp-gateway-card {
+            background: #ffffff;
+            border: 1.5px solid #f1f5f9;
+            border-radius: 16px;
+            padding: 16px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 110px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+        }
+
+        .mp-gateway-card:hover {
+            border-color: var(--mp-primary);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px -8px <?php echo pp_hexToRgba($primaryColor, 0.2); ?>;
+        }
+
+        .mp-gateway-logo-container {
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .mp-gateway-logo {
+            max-height: 40px;
+            max-width: 90px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.04));
+        }
+
+        .mp-gateway-name {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #334155;
+            line-height: 1.2;
+            margin-top: 2px;
+        }
+
+        .mp-amount-banner {
+            background: linear-gradient(135deg, <?php echo $primaryColor; ?> 0%, <?php echo $accentColor; ?> 100%);
+            border-radius: 16px;
+            padding: 16px 20px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 24px;
+            box-shadow: 0 10px 25px -5px <?php echo pp_hexToRgba($primaryColor, 0.35); ?>;
+        }
+
+        .mp-amount-label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .mp-amount-val {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .mp-footer-branding {
+            text-align: center;
+            margin-top: 18px;
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .mp-info-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px dashed #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .mp-info-list li:last-child {
+            border-bottom: none;
+        }
+
+        .mp-support-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.2s ease;
+            text-decoration: none !important;
+            display: block;
+            color: #1e293b;
+        }
+
+        .mp-support-card:hover {
+            border-color: var(--mp-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+            color: var(--mp-primary);
+        }
+
+        .mp-support-card svg {
+            width: 28px;
+            height: 28px;
+            margin-bottom: 6px;
+            color: var(--mp-primary);
+        }
+
+        /* Modern Language Selector Modal */
+        .mp-lang-modal .modal-content {
+            border-radius: 24px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+            overflow: hidden;
+            background: #ffffff;
+        }
+        .mp-lang-icon-wrap {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: <?php echo pp_hexToRgba($primaryColor, 0.1); ?>;
+            color: var(--mp-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .mp-lang-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .mp-lang-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border: 1.5px solid #e2e8f0;
+            background: #f8fafc;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+        .mp-lang-card:hover {
+            background: #ffffff;
+            border-color: var(--mp-primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px <?php echo pp_hexToRgba($primaryColor, 0.12); ?>;
+        }
+        .mp-lang-card.active {
+            background: <?php echo pp_hexToRgba($primaryColor, 0.06); ?>;
+            border-color: var(--mp-primary);
+            box-shadow: 0 0 0 1px var(--mp-primary);
+        }
+        .mp-lang-card-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .mp-lang-flag {
+            font-size: 24px;
+            line-height: 1;
+            display: inline-block;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));
+        }
+        .mp-lang-native {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.2;
+        }
+        .mp-lang-english {
+            font-size: 0.78rem;
+            color: #64748b;
+            font-weight: 500;
+            margin-top: 2px;
+        }
+        .mp-lang-check {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .mp-lang-card.active .mp-lang-check {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--mp-primary);
+            color: #ffffff;
+        }
+        .mp-lang-radio-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            transition: all 0.2s;
+        }
+        .mp-lang-card:hover .mp-lang-radio-circle {
+            border-color: var(--mp-primary);
+        }
+
+        @media (max-width: 576px) {
+            body { padding: 8px 4px; }
+            .mp-card { border-radius: 16px; }
+            .mp-topbar {
+                padding: 10px 10px;
+                gap: 6px;
+            }
+            .mp-icon-btn {
+                width: 32px;
+                height: 32px;
+                border-radius: 9px;
+            }
+            .mp-icon-btn svg {
+                width: 15px;
+                height: 15px;
+            }
+            .mp-topbar-actions {
+                gap: 4px !important;
+            }
+            .mp-amount-badge {
+                padding: 4px 8px;
+                font-size: 0.75rem;
+                gap: 3px;
+            }
+            .mp-amount-badge span.amount {
+                font-size: 0.82rem;
+            }
+            .mp-body { padding: 18px 12px; }
+        }
+
+        @media (max-width: 380px) {
+            .mp-topbar {
+                padding: 8px 6px;
+                gap: 4px;
+            }
+            .mp-icon-btn {
+                width: 30px;
+                height: 30px;
+                border-radius: 8px;
+            }
+            .mp-amount-badge {
+                padding: 3px 6px;
+                font-size: 0.7rem;
+            }
+            .mp-amount-badge span.amount {
+                font-size: 0.76rem;
+            }
+            .mp-amount-badge .mp-amount-label {
+                display: none;
+            }
+            .mp-topbar-actions {
+                gap: 3px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mp-container">
+        <div class="mp-card">
+            <!-- Top Action Bar -->
+            <div class="mp-topbar">
+                <div class="mp-icon-btn" onclick="location.href='<?php echo pp_checkout_address();?>?cancel'" title="<?php echo $data['lang']['close']?>">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                </div>
+                
+                <div class="mp-amount-badge">
+                    <span class="mp-amount-label"><?php echo $data['lang']['amount'] ?? 'Amount'; ?>:</span>
+                    <span class="amount"><?php echo money_round($data['transaction']['amount'] ?? 0, 2); ?> <?php echo htmlspecialchars($data['transaction']['currency'] ?? 'BDT'); ?></span>
+                </div>
+
+                <div class="d-flex gap-2 mp-topbar-actions">
+                    <div class="mp-icon-btn tab-trigger" data-tab="support" title="<?php echo $data['lang']['support']?>">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 15a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2l0 -3" /><path d="M15 15a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2l0 -3" /><path d="M4 15v-3a8 8 0 0 1 16 0v3" /></svg>
+                    </div>
+                    <div class="mp-icon-btn tab-trigger" data-tab="details" title="<?php echo $data['lang']['details']?>">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>
+                    </div>
+                    <div class="mp-icon-btn tab-trigger" data-tab="faq" title="<?php echo $data['lang']['faq']?>">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M19.875 6.27c.7 .398 1.13 1.143 1.125 1.948v7.284c0 .809 -.443 1.555 -1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1 -2.184 0l-6.75 -4.27a2.225 2.225 0 0 1 -1.158 -1.948v-7.285c0 -.809 .443 -1.554 1.158 -1.947l6.75 -3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033" /><path d="M12 16v.01" /><path d="M12 13a2 2 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483" /></svg>
+                    </div>
+                    <div class="mp-icon-btn" data-bs-target="#modal-language" data-bs-toggle="modal" title="<?php echo $data['lang']['language']?>">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6.371c0 4.418 -2.239 6.629 -5 6.629" /><path d="M4 6.371h7" /><path d="M5 9c0 2.144 2.252 3.908 6 4" /><path d="M12 20l4 -9l4 9" /><path d="M19.1 18h-6.2" /><path d="M6.694 3l.793 .582" /></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="mp-body">
+                <div class="mp-brand-header">
+                    <div class="mp-logo-wrapper">
+                        <img src="<?php echo $data['brand']['favicon'];?>" alt="<?php echo htmlspecialchars($data['brand']['name']);?>" class="mp-brand-logo">
+                    </div>
+                    <h3 class="mp-brand-name"><?php echo htmlspecialchars($data['brand']['name']);?></h3>
+                    <div class="mp-brand-badge">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3" /><path d="M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 12l0 2.5" /></svg>
+                        <?php echo $data['lang']['checkout']?>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <div class="mp-nav-pills" role="tablist">
+                    <?php if ($pp_gateways_mfs['status'] === true && !empty($pp_gateways_mfs['gateway'])): ?>
+                        <button type="button" class="mp-nav-btn active btn-mfs" data-tab="mfs">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /><path d="M11 4h2" /><path d="M12 17v.01" /></svg>
+                            <span><?php echo $data['lang']['mobile_banking']?></span>
+                        </button>
+                    <?php endif; ?>
+
+                    <?php if ($pp_gateways_bank['status'] === true && !empty($pp_gateways_bank['gateway'])): ?>
+                        <button type="button" class="mp-nav-btn btn-net-banking" data-tab="bank">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M3 10l18 0" /><path d="M5 6l7 -3l7 3" /><path d="M4 10l0 11" /><path d="M20 10l0 11" /><path d="M8 14l0 3" /><path d="M12 14l0 3" /><path d="M16 14l0 3" /></svg>
+                            <span><?php echo $data['lang']['net_banking']?></span>
+                        </button>
+                    <?php endif; ?>
+
+                    <?php if ($pp_gateways_global['status'] === true && !empty($pp_gateways_global['gateway'])): ?>
+                        <button type="button" class="mp-nav-btn btn-global" data-tab="global">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M3.6 9h16.8" /><path d="M3.6 15h16.8" /><path d="M11.5 3a17 17 0 0 0 0 18" /><path d="M12.5 3a17 17 0 0 1 0 18" /></svg>
+                            <span><?php echo $data['lang']['global']?></span>
+                        </button>
+                    <?php endif; ?>
+                </div>
+
+                <!-- MFS Tab Gateways -->
+                <div id="gateways-mfs" class="row g-3" style="display: flex;">
+                    <?php
+                        if ($pp_gateways_mfs['status'] === true && !empty($pp_gateways_mfs['gateway'])) {
+                            foreach($pp_gateways_mfs['gateway'] as $row){
+                    ?>
+                                <div class="col-6 col-sm-4">
+                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                        <div class="mp-gateway-logo-container">
+                                            <img src="<?php echo $row['logo']?>" alt="<?php echo htmlspecialchars($row['display'])?>" class="mp-gateway-logo">
+                                        </div>
+                                        <div class="mp-gateway-name"><?php echo htmlspecialchars($row['display'])?></div>
+                                    </div>
+                                </div>
+                    <?php
+                            }
+                        }
+                    ?>
+                </div>
+
+                <!-- Bank Tab Gateways -->
+                <div id="gateways-bank" class="row g-3" style="display: none;">
+                    <?php
+                        if ($pp_gateways_bank['status'] === true && !empty($pp_gateways_bank['gateway'])) {
+                            foreach($pp_gateways_bank['gateway'] as $row){
+                    ?>
+                                <div class="col-6 col-sm-4">
+                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                        <div class="mp-gateway-logo-container">
+                                            <img src="<?php echo $row['logo']?>" alt="<?php echo htmlspecialchars($row['display'])?>" class="mp-gateway-logo">
+                                        </div>
+                                        <div class="mp-gateway-name"><?php echo htmlspecialchars($row['display'])?></div>
+                                    </div>
+                                </div>
+                    <?php
+                            }
+                        }
+                    ?>
+                </div>
+
+                <!-- Global Tab Gateways -->
+                <div id="gateways-global" class="row g-3" style="display: none;">
+                    <?php
+                        if ($pp_gateways_global['status'] === true && !empty($pp_gateways_global['gateway'])) {
+                            foreach($pp_gateways_global['gateway'] as $row){
+                    ?>
+                                <div class="col-6 col-sm-4">
+                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                        <div class="mp-gateway-logo-container">
+                                            <img src="<?php echo $row['logo']?>" alt="<?php echo htmlspecialchars($row['display'])?>" class="mp-gateway-logo">
+                                        </div>
+                                        <div class="mp-gateway-name"><?php echo htmlspecialchars($row['display'])?></div>
+                                    </div>
+                                </div>
+                    <?php
+                            }
+                        }
+                    ?>
+                </div>
+
+                <!-- Support Channels Tab -->
+                <?php $support = $data['brand']['support'] ?? []; ?>
+                <div id="gateways-support" class="row g-3" style="display: none;">
+                    <?php if(!empty($support['email']) && $support['email'] != '--'): ?>
+                        <div class="col-6 col-md-4">
+                            <a href="mailto:<?php echo $support['email']?>" target="_blank" class="mp-support-card">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10" /><path d="M3 7l9 6l9 -6" /></svg>
+                                <div class="fw-semibold small"><?php echo $data['lang']['contact_email'] ?? 'Contact via Email'; ?></div>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if(!empty($support['phone']) && $support['phone'] != '--'): ?>
+                        <div class="col-6 col-md-4">
+                            <a href="tel:<?php echo $support['phone']?>" target="_blank" class="mp-support-card">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 4h4l2 5l-2.5 1.5a11 11 0 0 0 5 5l1.5 -2.5l5 2v4a2 2 0 0 1 -2 2a16 16 0 0 1 -15 -15a2 2 0 0 1 2 -2" /></svg>
+                                <div class="fw-semibold small"><?php echo $data['lang']['contact_phone'] ?? 'Contact via Phone'; ?></div>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if(!empty($support['whatsapp']) && $support['whatsapp'] != '--'): ?>
+                        <div class="col-6 col-md-4">
+                            <a href="https://wa.me/<?php echo $support['whatsapp']?>" target="_blank" class="mp-support-card">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9" /><path d="M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1" /></svg>
+                                <div class="fw-semibold small"><?php echo $data['lang']['contact_whatsapp'] ?? 'Contact via WhatsApp'; ?></div>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if(!empty($support['telegram']) && $support['telegram'] != '--'): ?>
+                        <div class="col-6 col-md-4">
+                            <a href="<?php echo $support['telegram']?>" target="_blank" class="mp-support-card">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 10l-4 4l6 6l4 -16l-18 7l4 2l2 6l3 -4" /></svg>
+                                <div class="fw-semibold small"><?php echo $data['lang']['contact_telegram'] ?? 'Contact via Telegram'; ?></div>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if(!empty($support['website']) && $support['website'] != '--'): ?>
+                        <div class="col-6 col-md-4">
+                            <a href="<?php echo $support['website']?>" target="_blank" class="mp-support-card">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M19.5 7a9 9 0 0 0 -7.5 -4a8.991 8.991 0 0 0 -7.484 4" /><path d="M11.5 3a16.989 16.989 0 0 0 -1.826 4" /><path d="M12.5 3a16.989 16.989 0 0 1 1.828 4" /><path d="M19.5 17a9 9 0 0 1 -7.5 4a8.991 8.991 0 0 1 -7.484 -4" /><path d="M11.5 21a16.989 16.989 0 0 1 -1.826 -4" /><path d="M12.5 21a16.989 16.989 0 0 0 1.828 -4" /><path d="M2 10l1 4l1.5 -4l1.5 4l1 -4" /><path d="M17 10l1 4l1.5 -4l1.5 4l1 -4" /><path d="M9.5 10l1 4l1.5 -4l1.5 4l1 -4" /></svg>
+                                <div class="fw-semibold small"><?php echo $data['lang']['contact_website'] ?? 'Contact via Website'; ?></div>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if(!empty($support['messenger']) && $support['messenger'] != '--'): ?>
+                        <div class="col-6 col-md-4">
+                            <a href="<?php echo $support['messenger']?>" target="_blank" class="mp-support-card">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 20l1.3 -3.9a9 8 0 1 1 3.4 2.9l-4.7 1" /><path d="M8 13l3 -2l2 2l3 -2" /></svg>
+                                <div class="fw-semibold small"><?php echo $data['lang']['contact_messenger'] ?? 'Contact via Messenger'; ?></div>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if(!empty($support['fb_page']) && $support['fb_page'] != '--'): ?>
+                        <div class="col-6 col-md-4">
+                            <a href="<?php echo $support['fb_page']?>" target="_blank" class="mp-support-card">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 10v4h3v7h4v-7h3l1 -4h-4v-2a1 1 0 0 1 1 -1h3v-4h-3a5 5 0 0 0 -5 5v2h-3" /></svg>
+                                <div class="fw-semibold small"><?php echo $data['lang']['contact_fb_page'] ?? 'Contact via Facebook'; ?></div>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Transaction Details Tab -->
+                <div id="gateways-details" style="display: none;">
+                    <div class="card p-3 border rounded-3 mb-0" style="background: #ffffff;">
+                        <ul class="list-unstyled mp-info-list mb-0">
+                            <li>
+                                <span class="text-muted"><?php echo $data['lang']['currency'] ?? 'Currency'; ?></span>
+                                <span class="fw-bold"><?php echo htmlspecialchars($data['transaction']['currency']); ?></span>
+                            </li>
+                            <li>
+                                <span class="text-muted"><?php echo $data['lang']['subtotal'] ?? 'Subtotal'; ?></span>
+                                <span class="fw-semibold"><?php echo money_round(($data['transaction']['amount'] ?? 0) - ($data['transaction']['discount_amount'] ?? 0), 2) . ' ' . $data['transaction']['currency']; ?></span>
+                            </li>
+                            <li>
+                                <span class="text-muted"><?php echo $data['lang']['discount'] ?? 'Discount'; ?></span>
+                                <span class="fw-semibold"><?php echo money_round($data['transaction']['discount_amount'] ?? 0, 2) . ' ' . $data['transaction']['currency']; ?></span>
+                            </li>
+                            <li>
+                                <span class="text-muted"><?php echo $data['lang']['total'] ?? 'Total'; ?></span>
+                                <span class="fw-bold" style="color: var(--mp-primary);"><?php echo money_round($data['transaction']['amount'], 2) . ' ' . $data['transaction']['currency']; ?></span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- FAQ Tab -->
+                <div id="gateways-faq" style="display: none;">
+                    <div class="accordion" id="accordion-mp">
+                        <?php
+                            $faqCount = 0;
+                            foreach($data['faqs'] ?? [] as $faq){
+                                $faqCount++;
+                        ?>
+                                <div class="accordion-item mb-2 border rounded-3 overflow-hidden">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button <?php echo ($faqCount == 1) ? '' : 'collapsed'; ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-mp-<?php echo $faqCount?>">
+                                            <?php echo htmlspecialchars($faq['title'])?>
+                                        </button>
+                                    </h2>
+                                    <div id="collapse-mp-<?php echo $faqCount?>" class="accordion-collapse collapse <?php echo ($faqCount == 1) ? 'show' : ''; ?>" data-bs-parent="#accordion-mp">
+                                        <div class="accordion-body text-muted small">
+                                            <?php echo $faq['description']?>
+                                        </div>
+                                    </div>
+                                </div>
+                        <?php
+                            }
+                        ?>
+                    </div>
+                </div>
+
+                <!-- Total Summary Bar -->
+                <div class="text-center mt-3 py-2 px-3 rounded-pill" style="background-color:<?php echo pp_hexToRgba($primaryColor, 0.08);?>;color:<?php echo $primaryColor;?>;font-weight:700;font-size:0.95rem;letter-spacing:0.2px;border:1px solid <?php echo pp_hexToRgba($primaryColor, 0.15);?>;">
+                    <?php echo $data['lang']['total'] ?? 'Total'; ?>: <?php echo money_round($data['transaction']['amount'], 2) . ' ' . $data['transaction']['currency'];?>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Footer Watermark Branding -->
+        <div class="mp-footer-branding">
+            <?php echo htmlspecialchars($data['options']['watermark_text'] ?? 'Secured by PipraPay'); ?>
+        </div>
+    </div>
+
+    <!-- Language Selector Modal -->
+    <div class="modal fade mp-lang-modal" id="modal-language" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-2 pt-4 px-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="mp-lang-icon-wrap">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M3.6 9h16.8" /><path d="M3.6 15h16.8" /><path d="M11.5 3a17 17 0 0 0 0 18" /><path d="M12.5 3a17 17 0 0 1 0 18" /></svg>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0 text-dark"><?php echo $data['lang']['select_language'] ?? 'Select Language'; ?></h5>
+                            <p class="text-muted small mb-0 mt-1"><?php echo $data['lang']['select_a_language'] ?? 'Choose your preferred language'; ?></p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 pt-2">
+                    <div class="mp-lang-grid">
+                        <?php
+                        $currentLang = $_SESSION['ui_language'] ?? ($data['brand']['locale']['language'] ?? 'en');
+                        $languagesMeta = [
+                            'en' => ['name' => 'English', 'native' => 'English', 'flag' => '🇺🇸', 'code' => 'EN', 'sub' => 'Default'],
+                            'bn' => ['name' => 'Bangla', 'native' => 'বাংলা', 'flag' => '🇧🇩', 'code' => 'BN', 'sub' => 'Bengali'],
+                            'hi' => ['name' => 'Hindi', 'native' => 'हिन्दी', 'flag' => '🇮🇳', 'code' => 'HI', 'sub' => 'Hindi'],
+                            'ur' => ['name' => 'Urdu', 'native' => 'اردو', 'flag' => '🇵🇰', 'code' => 'UR', 'sub' => 'Urdu'],
+                            'ar' => ['name' => 'Arabic', 'native' => 'العربية', 'flag' => '🇸🇦', 'code' => 'AR', 'sub' => 'Arabic'],
+                        ];
+                        $supportedLanguages = !empty($data['supported_languages']) ? $data['supported_languages'] : [
+                            'en' => 'English',
+                            'bn' => 'বাংলা',
+                            'hi' => 'हिन्दी',
+                            'ur' => 'اردو',
+                            'ar' => 'العربية',
+                        ];
+                        foreach ($supportedLanguages as $code => $label):
+                            $meta = $languagesMeta[$code] ?? ['name' => $label, 'native' => $label, 'flag' => '🌐', 'code' => strtoupper($code), 'sub' => $label];
+                            $isActive = ($currentLang === $code);
+                        ?>
+                            <div class="mp-lang-card <?= $isActive ? 'active' : '' ?>" onclick="selectModernLanguage('<?= htmlspecialchars($code) ?>')">
+                                <div class="mp-lang-card-left">
+                                    <span class="mp-lang-flag"><?= $meta['flag'] ?></span>
+                                    <div class="mp-lang-info">
+                                        <div class="mp-lang-native"><?= htmlspecialchars($meta['native']) ?></div>
+                                        <div class="mp-lang-english"><?= htmlspecialchars($meta['sub']) ?></div>
+                                    </div>
+                                </div>
+                                <div class="mp-lang-check">
+                                    <?php if ($isActive): ?>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+                                    <?php else: ?>
+                                        <div class="mp-lang-radio-circle"></div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <?php echo pp_assets('footer'); ?>
+
+    <script data-cfasync="false">
+        document.addEventListener('DOMContentLoaded', function() {
+            const navButtons = document.querySelectorAll('.mp-nav-pills .mp-nav-btn');
+            const topBarButtons = document.querySelectorAll('.mp-topbar .tab-trigger');
+            const allTriggers = document.querySelectorAll('.mp-nav-btn, .tab-trigger');
+
+            const tabSections = {
+                'mfs': document.getElementById('gateways-mfs'),
+                'bank': document.getElementById('gateways-bank'),
+                'global': document.getElementById('gateways-global'),
+                'support': document.getElementById('gateways-support'),
+                'details': document.getElementById('gateways-details'),
+                'faq': document.getElementById('gateways-faq')
+            };
+
+            function switchTab(targetTab) {
+                allTriggers.forEach(btn => btn.classList.remove('active'));
+                
+                Object.values(tabSections).forEach(section => {
+                    if (section) section.style.display = 'none';
+                });
+
+                allTriggers.forEach(btn => {
+                    if (btn.dataset.tab === targetTab) {
+                        btn.classList.add('active');
+                    }
+                });
+
+                if (tabSections[targetTab]) {
+                    const isRow = tabSections[targetTab].classList.contains('row');
+                    tabSections[targetTab].style.display = isRow ? 'flex' : 'block';
+                }
+            }
+
+            allTriggers.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tab = this.dataset.tab;
+                    if (tab) switchTab(tab);
+                });
+            });
+
+            if (navButtons.length > 0) {
+                navButtons[0].click();
+            }
+        });
+
+        function selectModernLanguage(code) {
+            if (code) {
+                location.href = '?lang=' + code;
+            }
+        }
+
+        function hitLanguage() {
+            var language = document.querySelector("#model-languages")?.value;
+            if (language) {
+                location.href = '?lang=' + language;
+            }
+        }
+    </script>
+</body>
+</html>

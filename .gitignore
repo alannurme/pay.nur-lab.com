@@ -1,0 +1,11 @@
+*.sql
+!pp-content/pp-install/db.sql
+*.log
+.env
+.DS_Store
+Thumbs.db
+pp-config.php
+pp-temp-config.php
+
+
+
