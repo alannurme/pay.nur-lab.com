@@ -799,7 +799,7 @@
     }
 
     function senderWhitelist(?string $sender = null, ?string $providerKey = null, string $mode = 'provider', ?string $providerName = null) {
-        $providers = [
+        $defaultProviders = [
             'bkash' => [
                 'name'     => 'bKash',
                 'currency' => 'BDT',
@@ -867,6 +867,18 @@
                 'senders'  => ['09638-900800'],
             ],
         ];
+
+        $providers = [];
+        foreach ($defaultProviders as $key => $prov) {
+            $customSendersStr = get_env('mfs_senders_' . $key);
+            if (!empty($customSendersStr) && $customSendersStr !== '--') {
+                $customArr = array_values(array_filter(array_map('trim', explode(',', $customSendersStr))));
+                if (!empty($customArr)) {
+                    $prov['senders'] = $customArr;
+                }
+            }
+            $providers[$key] = $prov;
+        }
 
         if ($mode === 'senders') {
             $allSenders = [];
