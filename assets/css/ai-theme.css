@@ -464,13 +464,19 @@ div[class*="pay-card"] {
     font-weight: 700 !important;
 }
 
-.mp-total-bar, .total-bar, div[class*="total-bar"], div[class*="amount-bar"] {
-    background: #eeeffe !important;
+.mp-total-bar, 
+.total-bar, 
+div[class*="total-bar"], 
+div[class*="amount-bar"],
+.mp-total-bar *, 
+.total-bar *, 
+div[class*="total-bar"] *, 
+div[class*="amount-bar"] * {
     color: #4f46e5 !important;
-    border: 1px solid #c7d2fe !important;
     font-weight: 800 !important;
-    border-radius: 12px !important;
+    text-shadow: none !important;
 }
+
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
