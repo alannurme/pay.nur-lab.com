@@ -4107,6 +4107,7 @@
     function pp_fetch_update_manifest() {
         // 1. Try GitHub Contents API (Instant & Uncached)
         $apiUrls = [
+            'https://api.github.com/repos/alannurme/pay.nur-lab.com/contents/manifest.json',
             'https://api.github.com/repos/samsusiyam/PipraPay/contents/manifest.json',
             'https://api.github.com/repos/PipraPay/PipraPay/contents/manifest.json'
         ];
@@ -4138,6 +4139,7 @@
         // 2. Fallback to Raw GitHub URL
         $ts = time();
         $urls = [
+            'https://raw.githubusercontent.com/alannurme/pay.nur-lab.com/main/manifest.json?t=' . $ts,
             'https://raw.githubusercontent.com/samsusiyam/PipraPay/main/manifest.json?t=' . $ts,
             'https://raw.githubusercontent.com/PipraPay/PipraPay/main/manifest.json?t=' . $ts
         ];

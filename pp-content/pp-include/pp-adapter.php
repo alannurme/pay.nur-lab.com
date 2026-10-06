@@ -7425,6 +7425,32 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                 }
             }
 
+            if($action == "system-settings-sms-senders-save"){
+                if($global_user_login == true){
+                    if (!empty($pp_demo_mode)) {
+                        echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.', 'csrf_token' => $new_csrf_token]);
+                    } else {
+                        if (!canAccessPage(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', $global_user_response['response'][0]['role'])) {
+                            echo json_encode(['status' => 'false', 'title' => 'Access denied', 'message' => 'You need permission to perform this action. Please contact the admin.', 'csrf_token' => $new_csrf_token]);
+                            exit();
+                        }
+
+                        $sendersData = $_POST['senders'] ?? [];
+                        if (is_array($sendersData)) {
+                            foreach ($sendersData as $provKey => $senderStr) {
+                                $cleanKey = escape_string(trim($provKey));
+                                $cleanVal = escape_string(trim($senderStr));
+                                set_env('mfs_senders_' . $cleanKey, $cleanVal);
+                            }
+                        }
+
+                        echo json_encode(['status' => 'true', 'title' => 'SMS Senders Updated', 'message' => 'Allowed SMS senders and whitelist saved successfully.', 'csrf_token' => $new_csrf_token]);
+                    }
+                } else {
+                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request', 'csrf_token' => $new_csrf_token]);
+                }
+            }
+
             if($action == "system-settings-update-check"){
                 if($global_user_login == true){
                     if (!empty($pp_demo_mode)) {
@@ -7470,7 +7496,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         if ($channel_data) {
                             $latest_name = $channel_data['latest_version_name'] ?? $current_name;
                             $latest_code = $channel_data['latest_version_code'] ?? $current_code;
-                            $download_url = $channel_data['download_url'] ?? "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip";
+                            $download_url = $channel_data['download_url'] ?? "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip";
 
                             $latest_hash = '';
                             if (isset($channel_data['versions']) && is_array($channel_data['versions'])) {
@@ -7561,7 +7587,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         if($update_available == true){
                             $download_url = get_env('last-update-download-url');
                             if (empty($download_url) || $download_url === '--') {
-                                $download_url = "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip";
+                                $download_url = "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip";
                             }
 
                             $saveDir =  __DIR__ . '/../../pp-media/storage/updates/';
@@ -7639,7 +7665,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         if (!file_exists($zipFile) || filesize($zipFile) < 1000) {
                             $download_url = get_env('last-update-download-url');
                             if (empty($download_url) || $download_url === '--') {
-                                $download_url = "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip";
+                                $download_url = "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip";
                             }
                             @mkdir(dirname($zipFile), 0755, true);
                             $ch = curl_init($download_url);

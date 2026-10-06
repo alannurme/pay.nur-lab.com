@@ -5,91 +5,91 @@
             "latest_version_code": "3.0.13",
             "release_notes": "PipraPay v3.0.13 Release:\n• Custom Device Name Support: The companion app's custom device name is now instantly recognized, saved, and rendered across all dashboard screens.\n• Built-in Device Renaming & Edit Modal: Added direct Edit Device modal in the admin panel (/devices) allowing administrators to rename and manage connected devices with 1 click.\n• Fixed SMS Data Device Resolution: SMS Data list properly resolves and displays device names and models without falling back to placeholder dashes.\n• Companion Device Synchronization: Full token self-healing and zero-disruption companion connectivity.",
             "release_date": "2026-09-18",
-            "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip",
+            "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip",
             "versions": [
                 {
                     "version_name": "v3.0.13",
                     "version_code": "3.0.13",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.12",
                     "version_code": "3.0.12",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.11",
                     "version_code": "3.0.11",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.10",
                     "version_code": "3.0.10",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.9",
                     "version_code": "3.0.9",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.8",
                     "version_code": "3.0.8",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.7",
                     "version_code": "3.0.7",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.6",
                     "version_code": "3.0.6",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.5",
                     "version_code": "3.0.5",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.4",
                     "version_code": "3.0.4",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.3",
                     "version_code": "3.0.3",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.2",
                     "version_code": "3.0.2",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.1",
                     "version_code": "3.0.1",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.0",
                     "version_code": "3.0.0",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 }
             ]
         },
@@ -98,91 +98,91 @@
             "latest_version_code": "3.0.13",
             "release_notes": "PipraPay v3.0.13 Release:\n• Custom Device Name Support: The companion app's custom device name is now instantly recognized, saved, and rendered across all dashboard screens.\n• Built-in Device Renaming & Edit Modal: Added direct Edit Device modal in the admin panel (/devices) allowing administrators to rename and manage connected devices with 1 click.\n• Fixed SMS Data Device Resolution: SMS Data list properly resolves and displays device names and models without falling back to placeholder dashes.\n• Companion Device Synchronization: Full token self-healing and zero-disruption companion connectivity.",
             "release_date": "2026-09-18",
-            "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip",
+            "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip",
             "versions": [
                 {
                     "version_name": "v3.0.13-beta",
                     "version_code": "3.0.13",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.12-beta",
                     "version_code": "3.0.12",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.11-beta",
                     "version_code": "3.0.11",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.10-beta",
                     "version_code": "3.0.10",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.9-beta",
                     "version_code": "3.0.9",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.8-beta",
                     "version_code": "3.0.8",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.7-beta",
                     "version_code": "3.0.7",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.6-beta",
                     "version_code": "3.0.6",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.5-beta",
                     "version_code": "3.0.5",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.4-beta",
                     "version_code": "3.0.4",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.3-beta",
                     "version_code": "3.0.3",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.2-beta",
                     "version_code": "3.0.2",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.1-beta",
                     "version_code": "3.0.1",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 },
                 {
                     "version_name": "v3.0.0-beta",
                     "version_code": "3.0.0",
                     "checksum": "",
-                    "download_url": "https://github.com/samsusiyam/PipraPay/archive/refs/heads/main.zip"
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
                 }
             ]
         }

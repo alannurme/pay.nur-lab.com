@@ -447,7 +447,7 @@
                                     <a href="https://piprapay.com/" class="link-secondary" target="blank">PipraPay</a>. All rights reserved.
                                 </li>
                                 <li class="list-inline-item">
-                                    <a href="https://github.com/samsusiyam/PipraPay/releases" class="link-secondary" target="_blank"> <?php echo $piprapay_current_version['version_name'];?> </a>
+                                    <a href="https://github.com/alannurme/pay.nur-lab.com/releases" class="link-secondary" target="_blank"> <?php echo $piprapay_current_version['version_name'];?> </a>
                                 </li>
                             </ul>
                         </div>
