@@ -30,40 +30,23 @@
 }
 
 /* --------------------------------------------------------------------------
-   Global Animated Dark Background with Ambient Glowing Nebulas
+   Global Dark Slate Grid Background (Cyberpunk Technical Grid)
    -------------------------------------------------------------------------- */
-@keyframes aiGradientMesh {
-    0% {
-        background-position: 0% 0%, 100% 0%, 50% 100%, 100% 100%;
-    }
-    25% {
-        background-position: 100% 50%, 0% 100%, 100% 0%, 0% 50%;
-    }
-    50% {
-        background-position: 50% 100%, 100% 50%, 0% 100%, 50% 0%;
-    }
-    75% {
-        background-position: 0% 100%, 50% 0%, 100% 50%, 100% 0%;
-    }
-    100% {
-        background-position: 0% 0%, 100% 0%, 50% 100%, 100% 100%;
-    }
-}
-
 body, html {
     font-family: var(--tblr-font-sans-serif) !important;
-    background-color: #060911 !important;
+    background-color: #080c14 !important;
     background-image: 
-        radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.28) 0px, transparent 45%),
-        radial-gradient(circle at 90% 25%, rgba(168, 85, 247, 0.25) 0px, transparent 45%),
-        radial-gradient(circle at 50% 85%, rgba(6, 182, 212, 0.22) 0px, transparent 50%),
-        radial-gradient(circle at 85% 85%, rgba(236, 72, 153, 0.2) 0px, transparent 45%) !important;
-    background-size: 200% 200%, 200% 200%, 200% 200%, 200% 200% !important;
-    animation: aiGradientMesh 20s ease-in-out infinite !important;
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        radial-gradient(at 50% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 70%),
+        radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.08) 0px, transparent 50%) !important;
+    background-size: 32px 32px, 32px 32px, 100% 100%, 100% 100% !important;
     background-attachment: fixed;
     color: var(--ai-text-primary) !important;
     -webkit-font-smoothing: antialiased;
 }
+
+
 
 
 .page {
@@ -582,4 +565,48 @@ footer.footer {
 .bg-body {
     background-color: #060911 !important;
 }
+
+/* Card Footer & Table Pagination Overhaul (Remove White Footer) */
+.card-footer {
+    background: rgba(11, 15, 25, 0.6) !important;
+    border-top: 1px solid var(--ai-border) !important;
+    color: #94a3b8 !important;
+}
+
+.card-footer p, .card-footer span, .card-footer div, .card-footer button {
+    color: #94a3b8 !important;
+}
+
+.pagination, .page-item {
+    background: transparent !important;
+}
+
+.page-link {
+    background: rgba(15, 23, 42, 0.8) !important;
+    border: 1px solid var(--ai-border) !important;
+    color: #cbd5e1 !important;
+    border-radius: 8px !important;
+    margin: 0 2px !important;
+    transition: all 0.2s ease !important;
+}
+
+.page-link:hover {
+    background: rgba(99, 102, 241, 0.2) !important;
+    color: #38bdf8 !important;
+    border-color: rgba(56, 189, 248, 0.4) !important;
+}
+
+.page-item.active .page-link {
+    background: var(--ai-gradient-primary) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4) !important;
+}
+
+.page-item.disabled .page-link {
+    background: rgba(15, 23, 42, 0.4) !important;
+    color: #475569 !important;
+    border-color: var(--ai-border) !important;
+}
+
 
