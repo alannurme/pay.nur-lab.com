@@ -49,23 +49,63 @@ body, html {
 /* --------------------------------------------------------------------------
    Text Color & Typography Overrides (Crystal Clear High Contrast)
    -------------------------------------------------------------------------- */
-.text-body, p, label {
-    color: var(--ai-text-body) !important;
+body {
+    color: var(--ai-text-body);
 }
 
-.text-secondary, .text-muted, .card-subtitle, .page-pretitle, small, .small, .form-text, .subheader, p.text-muted, div.text-muted, span.text-muted, div.text-secondary, span.text-secondary {
+.text-secondary, .text-muted, .card-subtitle, .page-pretitle, small, .small, .form-text, .subheader {
     color: var(--ai-text-muted) !important;
 }
 
-.text-dark, .text-black, p.text-dark, p.text-black, div.text-dark, div.text-black, span.text-dark, span.text-black, code.text-dark, [class*="text-dark"], [class*="text-black"] {
+.text-dark, .text-black, p.text-dark, p.text-black, div.text-dark, div.text-black, span.text-dark, span.text-black, code.text-dark {
     color: var(--ai-text-heading) !important;
 }
 
-h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .card-title, .page-title, strong, b, h1.text-dark, h2.text-dark, h3.text-dark, h4.text-dark, h5.text-dark, h6.text-dark, .card-title.text-dark {
-    color: var(--ai-text-heading) !important;
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .card-title, .page-title, strong, b {
     font-family: 'Outfit', sans-serif !important;
     font-weight: 700 !important;
     letter-spacing: -0.02em;
+}
+
+/* Gateway Instruction Boxes & Colored Containers - BRIGHT WHITE TEXT FOR READABILITY */
+div[style*="background"], 
+div[style*="background-color"], 
+div[style*="background :"],
+.gateway-instruction, 
+.instruction-box, 
+.alert-primary, 
+.alert-info, 
+.alert-warning, 
+.alert-danger, 
+.alert-success,
+.bg-primary, 
+.bg-secondary, 
+.bg-danger, 
+.bg-success, 
+.bg-warning, 
+.bg-info, 
+.bg-dark {
+    color: #ffffff !important;
+}
+
+div[style*="background"] p, 
+div[style*="background"] span, 
+div[style*="background"] div, 
+div[style*="background"] li, 
+div[style*="background"] label,
+div[style*="background"] b,
+div[style*="background"] strong,
+div[style*="background-color"] p, 
+div[style*="background-color"] span, 
+div[style*="background-color"] div, 
+div[style*="background-color"] li, 
+div[style*="background-color"] label,
+div[style*="background-color"] b,
+div[style*="background-color"] strong,
+.gateway-instruction *, 
+.instruction-box * {
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .link-secondary, a.link-secondary {
@@ -75,6 +115,7 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .card-title, .page-title, 
 .link-secondary:hover, a.link-secondary:hover {
     color: var(--ai-primary-dark) !important;
 }
+
 
 /* --------------------------------------------------------------------------
    Layout & Sidebar Spacing
