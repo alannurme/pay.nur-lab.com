@@ -43,6 +43,41 @@
 
 <div class="page-body">
     <div class="container-xl">
+        <!-- Quick Actions Bar -->
+        <div class="card mb-4 border-0" style="background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(15px);">
+            <div class="card-body py-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary-lt p-2 rounded-circle">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icon-tabler-bolt"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M13 3l-2 3h5l-3 8h4l-7 7l2 -6h-5l3 -7z" /></svg>
+                        </span>
+                        <div>
+                            <div class="fw-bold text-white">Quick Control Hub</div>
+                            <div class="small text-muted">Instant shortcuts for frequent operations</div>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1" onclick="load_content('Payment Link','<?php echo $site_url.$path_admin ?>/payment-link/create','nav-item-payment-link')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                            Payment Link
+                        </button>
+                        <button class="btn btn-sm btn-secondary d-inline-flex align-items-center gap-1" onclick="load_content('Invoice','<?php echo $site_url.$path_admin ?>/invoice/create','nav-item-invoice')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
+                            Create Invoice
+                        </button>
+                        <button class="btn btn-sm btn-secondary d-inline-flex align-items-center gap-1" onclick="load_content('Transaction','<?php echo $site_url.$path_admin ?>/transaction','nav-item-transaction')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2" /></svg>
+                            Transactions
+                        </button>
+                        <button class="btn btn-sm btn-secondary d-inline-flex align-items-center gap-1" onclick="load_content('Gateways','<?php echo $site_url.$path_admin ?>/gateways','nav-item-gateways')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3" /></svg>
+                            Gateways
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row g-4">
             <!-- Revenue -->
             <div class="col-lg-3 col-md-3">
@@ -275,6 +310,69 @@
                     </div>
                     <div class="card-body">
                        <div id="chart-gateway-statistics" style="height: 303px !important;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions Live Table Widget -->
+            <div class="col-12 mt-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="card-title m-0">Recent Transactions</h3>
+                            <div class="small text-muted mt-1">Live real-time activity feed</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="load_content('Transaction','<?php echo $site_url.$path_admin ?>/transaction','nav-item-transaction')">
+                            View All Transactions →
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-vcenter card-table">
+                            <thead>
+                                <tr>
+                                    <th>Ref / ID</th>
+                                    <th>Customer / Payer</th>
+                                    <th>Gateway</th>
+                                    <th>Amount</th>
+                                    <th>Date & Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                    $recent_tx = json_decode(getData($db_prefix.'transaction', ' WHERE brand_id = "'.$global_response_brand['response'][0]['brand_id'].'" AND status NOT IN ("initiated") ORDER BY id DESC LIMIT 5'), true);
+                                    if(isset($recent_tx['status']) && $recent_tx['status'] == true && !empty($recent_tx['response'])){
+                                        foreach($recent_tx['response'] as $txRow){
+                                            $st = strtolower($txRow['status'] ?? 'pending');
+                                            $badgeClass = 'bg-warning-lt';
+                                            if($st == 'completed' || $st == 'approved' || $st == 'success') { $badgeClass = 'bg-success-lt'; }
+                                            elseif($st == 'canceled' || $st == 'failed' || $st == 'rejected') { $badgeClass = 'bg-danger-lt'; }
+                                            elseif($st == 'refunded') { $badgeClass = 'bg-primary-lt'; }
+                                ?>
+                                <tr>
+                                    <td><span class="font-monospace text-primary"><?php echo htmlspecialchars($txRow['ref'] ?? 'N/A'); ?></span></td>
+                                    <td>
+                                        <div class="fw-semibold text-white"><?php echo htmlspecialchars($txRow['cust_name'] ?? $txRow['cust_email'] ?? 'Customer'); ?></div>
+                                        <div class="small text-muted"><?php echo htmlspecialchars($txRow['cust_phone'] ?? ''); ?></div>
+                                    </td>
+                                    <td><span class="badge bg-primary-lt"><?php echo htmlspecialchars(ucfirst($txRow['gateway_name'] ?? $txRow['gateway_id'] ?? 'Gateway')); ?></span></td>
+                                    <td><span class="fw-bold text-white"><?php echo number_format($txRow['amount'] ?? 0, 2); ?></span></td>
+                                    <td><span class="small text-muted"><?php echo htmlspecialchars($txRow['created_date'] ?? ''); ?></span></td>
+                                    <td><span class="badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars(ucfirst($txRow['status'] ?? 'Pending')); ?></span></td>
+                                </tr>
+                                <?php
+                                        }
+                                    } else {
+                                ?>
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mb-2 opacity-50"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
+                                        <div>No recent transactions found</div>
+                                    </td>
+                                </tr>
+                                <?php } ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
