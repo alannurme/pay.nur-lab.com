@@ -36,6 +36,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-payments.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-socials.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-vendors.min.css" />
+    <link rel="stylesheet" href="<?php echo $site_url ?>assets/css/ai-theme.css?v=2.0" />
 
     <style>
       @import url("<?php echo $site_url ?>assets/css/inter.css");
@@ -75,6 +76,9 @@
         }
         .page-wrapper{
             margin: 15px;
+        }
+        .root-print, .footer, .container-xl, .container-lg, .container-md, .container-sm, .container {
+            max-width: 100% !important;
         }
 
         .choices {
@@ -441,11 +445,11 @@
         </div>
 
         <div class="page-wrapper">
-            <div class="root-print" style="max-width: 1200px; width: 100%; margin: auto; margin-top: 0px;">
+            <div class="root-print" style="max-width: 100%; width: 100%; margin: auto; margin-top: 0px;">
                 <center><div class="spinner-border text-primary" style="margin-top: 150px;">  <span class="visually-hidden">Loading...</span></div></center>
             </div>
 
-            <footer class="footer footer-transparent d-print-none" style="max-width: 1200px; width: 100%; margin: auto; margin-top: 0px;">
+            <footer class="footer footer-transparent d-print-none" style="max-width: 100%; width: 100%; margin: auto; margin-top: 0px;">
                 <div class="container-xl">
                     <div class="row text-center align-items-center flex-row-reverse">
                         <div class="col-lg-auto ms-lg-auto">
