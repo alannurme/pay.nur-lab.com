@@ -3424,7 +3424,7 @@
                             '.$inputFieldHtml.'
 
                             <button class="btn btn-primary w-100 payment-form-btn mt-3" type="submit">'.$data['lang']['verify'].'</button>
-                        </form>';
+                        </form>
 
                         <script data-cfasync="false">
                             document.addEventListener("DOMContentLoaded", function() {
