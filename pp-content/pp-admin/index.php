@@ -217,9 +217,23 @@
 
               <div class="nav-item dropdown mb-5 mt-2">
                 <a href="#" class="nav-link d-flex lh-1 p-2 rounded" data-bs-toggle="dropdown" aria-label="Open user menu" aria-expanded="false">
-                  <span class="avatar avatar-sm bg-primary text-white" style="min-width: 32px; background-image: url('https://ui-avatars.com/api/?name=<?php echo urlencode(getNameChars($global_response_brand['response'][0]['identify_name'], 1));?>&color=FFFFFF&background=343a40');"><?php echo htmlspecialchars(getNameChars($global_response_brand['response'][0]['identify_name'], 1)); ?></span>
+                  <?php
+                      $activeBrandFav = $global_response_brand['response'][0]['favicon'] ?? '';
+                      if (empty($activeBrandFav) || $activeBrandFav === '--') {
+                          $activeBrandFav = $global_response_brand['response'][0]['logo'] ?? '';
+                      }
+                      $hasBrandIcon = (!empty($activeBrandFav) && $activeBrandFav !== '--');
+                  ?>
+                  <?php if ($hasBrandIcon): ?>
+                      <span class="avatar avatar-sm rounded flex-shrink-0" style="min-width: 32px; height: 32px; background-image: url('<?php echo htmlspecialchars($activeBrandFav); ?>'); background-size: cover; background-position: center; background-repeat: no-repeat;"></span>
+                  <?php else: ?>
+                      <span class="avatar avatar-sm bg-primary-lt text-primary rounded flex-shrink-0 d-flex align-items-center justify-content-center" style="min-width: 32px; height: 32px;">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-building-store"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /><path d="M5 21l0 -10.15" /><path d="M19 21l0 -10.15" /><path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></svg>
+                      </span>
+                  <?php endif; ?>
+
                   <div class="ps-2 w-100">
-                    <div class="text-black" style="width: 100px;white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;"><?php echo $global_response_brand['response'][0]['identify_name'];?></div>
+                    <div class="text-black" style="width: 100px;white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;"><?php echo htmlspecialchars($global_response_brand['response'][0]['identify_name']);?></div>
                     <div class="mt-1 small text-secondary">Active brand</div>
                   </div>
 
@@ -236,10 +250,17 @@
                           foreach($response_permission['response'] as $row){
                               $params_br = [':brand_id' => $row['brand_id']];
                               $response_brand = json_decode(getData($db_prefix.'brands','WHERE brand_id = :brand_id', '* FROM', $params_br), true);
+                              $bItemFav = $response_brand['response'][0]['favicon'] ?? '';
+                              if (empty($bItemFav) || $bItemFav === '--') $bItemFav = $response_brand['response'][0]['logo'] ?? '';
+                              $hasItemFav = (!empty($bItemFav) && $bItemFav !== '--');
                   ?>
-                              <a href="javascript:void(0)" class="dropdown-item" onclick="set_brand('<?php echo $row['brand_id']?>')">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-building-store"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /><path d="M5 21l0 -10.15" /><path d="M19 21l0 -10.15" /><path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></svg>
-                                  <?php echo $response_brand['response'][0]['identify_name']?>
+                              <a href="javascript:void(0)" class="dropdown-item d-flex align-items-center gap-2" onclick="set_brand('<?php echo $row['brand_id']?>')">
+                                  <?php if ($hasItemFav): ?>
+                                      <img src="<?php echo htmlspecialchars($bItemFav); ?>" style="width: 18px; height: 18px; object-fit: contain;" alt="">
+                                  <?php else: ?>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-building-store"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /><path d="M5 21l0 -10.15" /><path d="M19 21l0 -10.15" /><path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></svg>
+                                  <?php endif; ?>
+                                  <span><?php echo htmlspecialchars($response_brand['response'][0]['identify_name']); ?></span>
                               </a>
                   <?php
                           }
