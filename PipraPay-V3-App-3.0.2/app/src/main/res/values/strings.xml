@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">PipraPay Companion</string>
+    <string name="login_title">PipraPay Device Pairing</string>
+    <string name="login_subtitle">Scan the QR code from PipraPay Admin Panel (Devices section) or enter credentials manually.</string>
+    <string name="scan_qr_btn">Scan QR Code</string>
+    <string name="or_divider">OR ENTER MANUALLY</string>
+    <string name="server_url_hint">PipraPay Server URL (e.g. https://pay.hostnibo.com)</string>
+    <string name="otp_hint">One Time Password / OTP</string>
+    <string name="connect_btn">Connect Device</string>
+    <string name="disconnect_btn">Disconnect</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="service_running">SMS Gateway Active</string>
+    <string name="service_stopped">SMS Gateway Stopped</string>
+    <string name="permission_needed">SMS and Notification permissions are required for payment verification.</string>
+</resources>
