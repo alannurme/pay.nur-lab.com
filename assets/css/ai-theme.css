@@ -53,17 +53,30 @@ body, html {
     background: transparent !important;
 }
 
-/* Tabler Overrides */
-.text-body, .text-secondary, .text-muted, p, span, h1, h2, h3, h4, h5, h6, label {
-    color: #cbd5e1;
+/* Tabler Overrides & High-Contrast Readability */
+.text-body, p, label {
+    color: #e2e8f0 !important;
 }
 
-h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
-    color: #f8fafc !important;
+.text-secondary, .text-muted, .card-subtitle, .page-pretitle, small, .small, .form-text, .subheader, p.text-muted, div.text-muted, span.text-muted, div.text-secondary, span.text-secondary {
+    color: #94a3b8 !important;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .card-title, .page-title, strong, b {
+    color: #ffffff !important;
     font-family: 'Outfit', sans-serif !important;
     font-weight: 700 !important;
     letter-spacing: -0.02em;
 }
+
+.link-secondary, a.link-secondary {
+    color: #94a3b8 !important;
+}
+
+.link-secondary:hover, a.link-secondary:hover {
+    color: #38bdf8 !important;
+}
+
 
 /* --------------------------------------------------------------------------
    Layout Spacing
