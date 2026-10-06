@@ -1,12 +1,18 @@
 {
     "channels": {
         "stable": {
-            "latest_version_name": "v3.0.13",
-            "latest_version_code": "3.0.13",
-            "release_notes": "PipraPay v3.0.13 Release:\n• Custom Device Name Support: The companion app's custom device name is now instantly recognized, saved, and rendered across all dashboard screens.\n• Built-in Device Renaming & Edit Modal: Added direct Edit Device modal in the admin panel (/devices) allowing administrators to rename and manage connected devices with 1 click.\n• Fixed SMS Data Device Resolution: SMS Data list properly resolves and displays device names and models without falling back to placeholder dashes.\n• Companion Device Synchronization: Full token self-healing and zero-disruption companion connectivity.",
-            "release_date": "2026-09-18",
+            "latest_version_name": "v3.0.14",
+            "latest_version_code": "3.0.14",
+            "release_notes": "PipraPay v3.0.14 Update:\n• Admin Panel SMS Senders & Whitelist Management: Fully dynamic MFS and Bank SMS sender ID configuration.\n• Dynamic GitHub Repository Update Integration: Configured to track alannurme/pay.nur-lab.com.\n• System stability and Imagick extension support enhancements.",
+            "release_date": "2026-10-06",
             "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip",
             "versions": [
+                {
+                    "version_name": "v3.0.14",
+                    "version_code": "3.0.14",
+                    "checksum": "",
+                    "download_url": "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip"
+                },
                 {
                     "version_name": "v3.0.13",
                     "version_code": "3.0.13",
