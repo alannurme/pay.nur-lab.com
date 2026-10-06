@@ -438,9 +438,15 @@
                     </div>
                 </div>
 
-              <div class="text-center mt-3 py-2 px-3 rounded" style="background-color:<?php echo pp_hexToRgba($data['options']['primary_color'], 0.08);?>;color:<?php echo $data['options']['primary_color'];?>;font-weight:600;font-size:1rem;">
+              <?php
+                  $pColor = $data['options']['primary_color'] ?? '#4f46e5';
+                  $totalTextColor = (empty($pColor) || strtolower(trim($pColor)) == '#ffffff' || strtolower(trim($pColor)) == '#fff') ? '#4f46e5' : $pColor;
+                  $totalBgColor = pp_hexToRgba($totalTextColor, 0.08);
+              ?>
+              <div class="text-center mt-3 py-2 px-3 rounded" style="background-color:<?php echo $totalBgColor;?> !important;color:<?php echo $totalTextColor;?> !important;font-weight:800;font-size:1rem;">
                   <?php echo $data['lang']['total']?>: <?php echo money_round($data['transaction']['amount'], 2).$data['transaction']['currency'];?>
               </div>
+
           </div>
         </div>
 

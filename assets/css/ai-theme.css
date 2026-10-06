@@ -468,14 +468,17 @@ div[class*="pay-card"] {
 .total-bar, 
 div[class*="total-bar"], 
 div[class*="amount-bar"],
+.rounded-pill[style*="background"],
 .mp-total-bar *, 
 .total-bar *, 
 div[class*="total-bar"] *, 
-div[class*="amount-bar"] * {
+div[class*="amount-bar"] *,
+.rounded-pill[style*="background"] * {
     color: #4f46e5 !important;
     font-weight: 800 !important;
     text-shadow: none !important;
 }
+
 
 
 /* Custom Scrollbars */

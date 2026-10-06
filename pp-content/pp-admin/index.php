@@ -36,7 +36,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-payments.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-socials.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-vendors.min.css" />
-    <link rel="stylesheet" href="<?php echo $site_url ?>assets/css/ai-theme.css?v=15.0" />
+    <link rel="stylesheet" href="<?php echo $site_url ?>assets/css/ai-theme.css?v=16.0" />
 
     <style>
       @import url("<?php echo $site_url ?>assets/css/inter.css");

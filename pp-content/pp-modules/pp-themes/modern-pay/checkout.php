@@ -778,9 +778,15 @@
                 </div>
 
                 <!-- Total Summary Bar -->
-                <div class="text-center mt-3 py-2 px-3 rounded-pill" style="background-color:<?php echo pp_hexToRgba($primaryColor, 0.08);?>;color:<?php echo $primaryColor;?>;font-weight:700;font-size:0.95rem;letter-spacing:0.2px;border:1px solid <?php echo pp_hexToRgba($primaryColor, 0.15);?>;">
+                <?php
+                    $totalTextColor = (empty($primaryColor) || strtolower(trim($primaryColor)) == '#ffffff' || strtolower(trim($primaryColor)) == '#fff') ? '#4f46e5' : $primaryColor;
+                    $totalBgColor = pp_hexToRgba($totalTextColor, 0.08);
+                    $totalBorderColor = pp_hexToRgba($totalTextColor, 0.18);
+                ?>
+                <div class="text-center mt-3 py-2 px-3 rounded-pill" style="background-color:<?php echo $totalBgColor;?> !important;color:<?php echo $totalTextColor;?> !important;font-weight:800;font-size:0.95rem;letter-spacing:0.2px;border:1px solid <?php echo $totalBorderColor;?> !important;">
                     <?php echo $data['lang']['total'] ?? 'Total'; ?>: <?php echo money_round($data['transaction']['amount'], 2) . ' ' . $data['transaction']['currency'];?>
                 </div>
+
 
             </div>
         </div>
