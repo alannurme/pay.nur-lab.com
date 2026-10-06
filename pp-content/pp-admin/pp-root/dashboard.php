@@ -44,7 +44,7 @@
 <div class="page-body">
     <div class="container-xl">
         <!-- Quick Actions Bar -->
-        <div class="card mb-4 border-0" style="background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(15px);">
+        <div class="card mb-4 border border-light shadow-sm bg-white">
             <div class="card-body py-3">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                     <div class="d-flex align-items-center gap-2">
@@ -52,8 +52,8 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icon-tabler-bolt"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M13 3l-2 3h5l-3 8h4l-7 7l2 -6h-5l3 -7z" /></svg>
                         </span>
                         <div>
-                            <div class="fw-bold text-white">Quick Control Hub</div>
-                            <div class="small text-muted">Instant shortcuts for frequent operations</div>
+                            <div class="fw-bold" style="color: #0f172a; font-size: 15px;">Quick Control Hub</div>
+                            <div class="small" style="color: #64748b;">Instant shortcuts for frequent operations</div>
                         </div>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
