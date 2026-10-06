@@ -9634,7 +9634,32 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                         $all_transactions = [];
 
                                         if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
+                                            $vMethod = $options['verification_method'] ?? 'trx_id';
                                             $trxid = escape_string($_POST['trxid'] ?? '');
+                                            $mobile_number = escape_string($_POST['mobile_number'] ?? '');
+
+                                            if ($vMethod === 'phone_number' || ($mobile_number != '' && $trxid == '')) {
+                                                if($mobile_number == ""){
+                                                    echo json_encode(['status' => "false", 'title' => 'Missing Account Number', 'message' => 'Please enter a valid sender account number.']);
+                                                    exit();
+                                                }
+
+                                                $params = [ ':sender_key' => $gateway_info['sender_key'], ':type' => $gateway_info['sender_type'], ':number' => $mobile_number, ':status' => 'approved' ];
+                                                $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND type = :type AND number = :number AND status = :status ORDER BY id DESC LIMIT 1', '* FROM', $params), true);
+
+                                                if($response_pending_SMSTransaction['status'] == true){
+                                                    $trxid = $response_pending_SMSTransaction['response'][0]['trx_id'];
+                                                } else {
+                                                    // Save transaction as pending with sender number while waiting for auto-verify SMS
+                                                    $columns = ['processing_fee', 'discount_amount', 'local_net_amount', 'local_currency', 'gateway_id', 'sender_key', 'status', 'sender', 'updated_date'];
+                                                    $values = [money_sanitize($totalProcessingFee), money_sanitize($totalDiscount), money_sanitize($convertedAmount), $response_gateway['response'][0]['currency'], $gateway_id, $gateway_info['sender_key'], 'pending', $mobile_number, getCurrentDatetime('Y-m-d H:i:s')];
+                                                    $condition = 'id ="'.$response_transaction['response'][0]['id'].'"';
+                                                    updateData($db_prefix.'transaction', $columns, $values, $condition);
+
+                                                    echo json_encode(['status' => "false", 'title' => 'Waiting for Payment', 'message' => 'Payment SMS not received yet. Please complete the Send Money transaction and wait a moment.']);
+                                                    exit();
+                                                }
+                                            }
 
                                             if($trxid == ""){
                                                 echo json_encode(['status' => "false", 'title' => 'Missing Transaction ID', 'message' => 'The Transaction ID field cannot be empty. Please provide a valid Transaction ID.']);
@@ -9642,7 +9667,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                 $params = [ ':trx_id' => $trxid ];
 
                                                 $response_Checktransaction = json_decode(getData($db_prefix.'transaction','WHERE trx_id = :trx_id', '* FROM', $params),true);
-                                                if($response_Checktransaction['status'] == true){
+                                                if($response_Checktransaction['status'] == true && $response_Checktransaction['response'][0]['id'] != $response_transaction['response'][0]['id']){
                                                     echo json_encode(['status' => "false", 'title' => 'Duplicate Transaction ID', 'message' => 'This Transaction ID is already exits. Please provide a different one.']);
                                                 }else{
                                                     $params = [ ':sender_key' => $gateway_info['sender_key'], ':type' => $gateway_info['sender_type'], ':trx_id' => $trxid, ':status' => 'approved' ];

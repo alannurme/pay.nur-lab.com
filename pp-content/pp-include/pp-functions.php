@@ -3325,13 +3325,13 @@
                     <div class="p-4 text-center text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%);">
                         <h6 class="fw-bold mb-3 text-white" style="letter-spacing: 0.5px; font-size: 16px;">Your bKash Account Number</h6>
                         <div class="mb-3">
-                            <input type="tel" id="pp-step1-mobile-input" class="form-control form-control-lg text-center fw-bold" placeholder="e.g 01XXXXXXXXX" style="height: 48px; border-radius: 8px; font-size: 18px; color: #333; background: #fff; border: none; letter-spacing: 1px;" maxlength="11" />
+                            <input type="tel" id="pp-step1-mobile-input" class="form-control form-control-lg text-center fw-bold" placeholder="e.g 01XXXXXXXXX" style="height: 48px; border-radius: 8px; font-size: 18px; color: #333; background: #fff; border: none; letter-spacing: 1px;" maxlength="11" oninput="pp_check_step1_validity()" />
                         </div>
                         <p class="small text-white-50 mb-0">Confirm and proceed, terms & conditions</p>
                     </div>
                     <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
                         <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="window.history.back()">Cancel</button>
-                        <button type="button" class="btn btn-danger px-4 rounded-pill fw-bold" style="background: #e2136e; border-color: #e2136e;" onclick="pp_proceed_to_step2()">Confirm</button>
+                        <button type="button" id="pp-step1-confirm-btn" class="btn btn-secondary px-4 rounded-pill fw-bold" disabled style="opacity: 0.6; cursor: not-allowed; background: #ccc; border-color: #ccc;" onclick="pp_proceed_to_step2()">Confirm</button>
                     </div>
                 </div>
                 ';
@@ -3340,107 +3340,177 @@
             $step2Style = ($vMethodCheck === 'phone_number') ? 'style="display:none;"' : '';
             echo '<div id="pp-step2-instructions-wrapper" '.$step2Style.'>';
 
-            if(isset($instructions)){
-                echo '<ol class="payment-instructions">';
-
-                $rowli = 0;
-
-                foreach ($instructions as $step) {
-                    $rowli = $rowli+1;
-
-                    // Resolve language directly
-                    $text = $lang[$step['text']] ?? $step['text'];
-                    if ($vMethodCheck === 'phone_number' && $step['text'] == '7') {
-                        $text = ($language === 'bn') ? 'আপনার বিকাশ/নগদ নম্বর নিচের বক্সে লিখুন এবং নিশ্চিত করুন চাপুন।' : 'Put your bKash/Nagad account number below and press Confirm';
-                    }
-
-                    // Replace variables
-                    if (!empty($step['vars'])) {
-                        foreach ($step['vars'] as $k => $v) {
-                            $text = str_replace($k, '<span class="dynamic-value">'.$v.'</span>', $text);
-                        }
-                    }
-
-                    echo '<li class="li-'.$rowli.'">';
-                    echo ($step['icon'] == "") ? '<div class="dot"></div>' : $step['icon'];
-
-                    echo '<p>';
-                    echo $text;
-
-                    /* Copy button */
-                    if (!empty($step['copy']) && isset($step['value'])) {
-                        echo ' <span class="button-icon"
-                            onclick="copy_value(\'' . htmlspecialchars($step['value'], ENT_QUOTES) . '\')">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                                <path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/>
-                                <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/>
-                            </svg>
-                        </span>';
-                    }
-
-                    /* Action button */
-                    if (!empty($step['action'])) {
-                        $action = $step['action'];
-
-                        if ($action['type'] === 'image' && !empty($action['value'])) {
-                            echo ' <span class="button-icon"
-                                onclick="pp_show_image(\''.htmlspecialchars($action['value'], ENT_QUOTES).'\')">
-                                '.$action['label'].'
-                            </span>';
-                        }else{
-                            echo '<style>.li-'.$rowli.'{display: none !important;}</style>';
-                        }
-                    }
-
-                    echo '</p>';
-                    echo '</li>';
-
-                }
-
-                echo '</ol>';
+            if ($vMethodCheck === 'phone_number') {
+                $brandName = htmlspecialchars($data['brand']['brand_name'] ?? $data['brand']['name'] ?? 'PipraPay Merchant', ENT_QUOTES);
+                $refNo = htmlspecialchars($data['transaction']['ref'] ?? '', ENT_QUOTES);
+                $amountFormatted = number_format((float)($data['transaction']['amount'] ?? 0), 2);
+                $targetNumber = htmlspecialchars($data['options']['number'] ?? $data['options']['mobile_number'] ?? $data['options']['account_number'] ?? '01706016565', ENT_QUOTES);
+                $numberType = htmlspecialchars($data['options']['number_type'] ?? 'PERSONAL NUMBER', ENT_QUOTES);
 
                 echo '
-                    <div id="pp-image-modal" class="pp-modal" style="display:none;">
-                        <div class="pp-modal-content">
-                            <span class="pp-close" onclick="pp_close_image()">&times;</span>
-                            <div class="pp-model-image-b"><img id="pp-modal-image" src="" alt="Preview"></div>
+                <div class="card shadow-sm border-0 my-3" style="max-width: 440px; margin: 0 auto; overflow: hidden; border-radius: 12px;">
+                    <!-- Top Header -->
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-white border-bottom">
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size: 15px;">'.$brandName.'</div>
+                            <div class="text-muted small">Inv: '.$refNo.'</div>
+                        </div>
+                        <div class="fw-bold text-dark" style="font-size: 18px;">৳'.$amountFormatted.'</div>
+                    </div>
+
+                    <!-- Pink Body -->
+                    <div class="p-3 text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%); font-size: 13px;">
+                        <!-- Target Number Box -->
+                        <div class="p-2 mb-3 rounded d-flex justify-content-between align-items-center" style="background: rgba(0,0,0,0.18); border: 1px dashed rgba(255,255,255,0.35);">
+                            <div>
+                                <div style="font-size: 10px; letter-spacing: 1px; opacity: 0.85; text-transform: uppercase;">'.$numberType.'</div>
+                                <div class="fw-bold text-white" style="font-size: 20px; letter-spacing: 1px;">'.$targetNumber.'</div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="copy_value(\''.$targetNumber.'\')" title="Copy Number" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Instruction Steps -->
+                        <div class="mb-2 d-flex align-items-start gap-2">
+                            <span class="badge rounded-circle bg-white text-danger fw-bold" style="min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">1</span>
+                            <span>উপরে দেওয়া নম্বরটি কপি করুন</span>
+                        </div>
+                        <div class="mb-2 d-flex align-items-start gap-2">
+                            <span class="badge rounded-circle bg-white text-danger fw-bold" style="min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">2</span>
+                            <span>বিকাশ অ্যাপ ওপেন করুন অথবা *247# ডায়াল করুন</span>
+                        </div>
+
+                        <!-- bKash Send Money Illustration -->
+                        <div class="my-3 p-2 bg-white rounded text-dark text-center position-relative shadow-sm" style="max-width: 260px; margin: 0 auto; border-radius: 10px;">
+                            <div class="d-flex justify-content-between align-items-center mb-1 px-1">
+                                <span class="badge bg-danger rounded-pill px-2 py-1" style="font-size: 9px; background: #e2136e !important;">bKash</span>
+                                <small class="text-muted" style="font-size: 9px;">Send Money / সেন্ড মানি</small>
+                            </div>
+                            <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-center gap-2" style="background: #fff5f8 !important; border-color: #fcd6e5 !important;">
+                                <div class="p-1 rounded-circle bg-white shadow-sm border" style="border-color: #e2136e !important;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                                </div>
+                                <div class="text-start">
+                                    <div class="fw-bold" style="font-size: 12px; color: #e2136e;">সেন্ড মানি</div>
+                                    <div style="font-size: 9px;" class="text-muted">Send Money</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 d-flex align-items-start gap-2">
+                            <span class="badge rounded-circle bg-white text-danger fw-bold" style="min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">3</span>
+                            <span style="font-size: 11px; opacity: 0.95;">নির্ধারিত নম্বরে সঠিক পরিমাণ টাকা পাঠিয়ে সেন্ড মানি/ক্যাশ আউট এর পর অটো ভেরিফিকেশনের জন্য কিছু সময় অপেক্ষা করুন, যেকোনো সমস্যায় সাপোর্ট নিন।</span>
+                        </div>
+
+                        <!-- Session Countdown Timer & Status -->
+                        <div class="mt-3 pt-2 border-top border-white-50 text-center">
+                            <div class="small fw-bold text-white mb-1">◆ পেমেন্ট সম্পন্ন হলে কিছু সময় অপেক্ষা করুন...</div>
+                            <div class="small text-white-50">Session expires in <span id="pp-timer" class="fw-bold text-white">05:00</span></div>
                         </div>
                     </div>
 
-                    <script data-cfasync="false">
-                        function pp_show_image(src) {
-                            const modal = document.getElementById("pp-image-modal");
-                            const img = document.getElementById("pp-modal-image");
+                    <!-- Hidden Form & Footer -->
+                    <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="action-v2" value="transaction-verify">
+                        <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
+                        <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
+                        <input type="hidden" id="pp-step2-mobile-input" name="mobile_number" value="">
 
-                            img.src = src;
-                            modal.style.display = "flex";
-                        }
-
-                        function pp_close_image() {
-                            document.getElementById("pp-image-modal").style.display = "none";
-                        }
-                    </script>
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
+                            <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="pp_back_to_step1()">Cancel</button>
+                            <button type="submit" class="btn btn-danger px-4 rounded-pill fw-bold payment-form-btn d-flex align-items-center gap-1" style="background: #e2136e; border-color: #e2136e;">
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span> Auto verifying...
+                            </button>
+                        </div>
+                    </form>
+                </div>
                 ';
-            }
+            } else {
+                if(isset($instructions)){
+                    echo '<ol class="payment-instructions">';
 
-            if(isset($gateway_info)){
-                if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
-                    $vMethod = $data['options']['verification_method'] ?? 'trx_id';
+                    $rowli = 0;
 
-                    if ($vMethod === 'phone_number') {
-                        $inputFieldHtml = '
-                            <div class="form-group mt-3">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <label class="form-label mb-0">Your Sender Account Number</label>
-                                    <a href="javascript:void(0)" onclick="pp_back_to_step1()" class="small text-decoration-none text-primary fw-bold">Change Number</a>
-                                </div>
-                                <div class="form-control-wrap">
-                                    <input type="text" id="pp-step2-mobile-input" class="form-control" name="mobile_number" placeholder="e.g 01XXXXXXXXX" required=""> 
-                                </div>
-                            </div>';
-                    } else {
+                    foreach ($instructions as $step) {
+                        $rowli = $rowli+1;
+
+                        // Resolve language directly
+                        $text = $lang[$step['text']] ?? $step['text'];
+
+                        // Replace variables
+                        if (!empty($step['vars'])) {
+                            foreach ($step['vars'] as $k => $v) {
+                                $text = str_replace($k, '<span class="dynamic-value">'.$v.'</span>', $text);
+                            }
+                        }
+
+                        echo '<li class="li-'.$rowli.'">';
+                        echo ($step['icon'] == "") ? '<div class="dot"></div>' : $step['icon'];
+
+                        echo '<p>';
+                        echo $text;
+
+                        /* Copy button */
+                        if (!empty($step['copy']) && isset($step['value'])) {
+                            echo ' <span class="button-icon"
+                                onclick="copy_value(\'' . htmlspecialchars($step['value'], ENT_QUOTES) . '\')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/>
+                                    <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/>
+                                </svg>
+                            </span>';
+                        }
+
+                        /* Action button */
+                        if (!empty($step['action'])) {
+                            $action = $step['action'];
+
+                            if ($action['type'] === 'image' && !empty($action['value'])) {
+                                echo ' <span class="button-icon"
+                                    onclick="pp_show_image(\''.htmlspecialchars($action['value'], ENT_QUOTES).'\')">
+                                    '.$action['label'].'
+                                </span>';
+                            }else{
+                                echo '<style>.li-'.$rowli.'{display: none !important;}</style>';
+                            }
+                        }
+
+                        echo '</p>';
+                        echo '</li>';
+
+                    }
+
+                    echo '</ol>';
+
+                    echo '
+                        <div id="pp-image-modal" class="pp-modal" style="display:none;">
+                            <div class="pp-modal-content">
+                                <span class="pp-close" onclick="pp_close_image()">&times;</span>
+                                <div class="pp-model-image-b"><img id="pp-modal-image" src="" alt="Preview"></div>
+                            </div>
+                        </div>
+
+                        <script data-cfasync="false">
+                            function pp_show_image(src) {
+                                const modal = document.getElementById("pp-image-modal");
+                                const img = document.getElementById("pp-modal-image");
+
+                                img.src = src;
+                                modal.style.display = "flex";
+                            }
+
+                            function pp_close_image() {
+                                document.getElementById("pp-image-modal").style.display = "none";
+                            }
+                        </script>
+                    ';
+                }
+
+                if(isset($gateway_info)){
+                    if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
                         $inputFieldHtml = '
                             <div class="form-group mt-3">
                                 <label class="form-label">'.$data['lang']['transaction_id'].'</label>
@@ -3448,88 +3518,23 @@
                                     <input type="text" class="form-control" name="trxid" placeholder="'.$data['lang']['enter_transaction_id'].'" required=""> 
                                 </div>
                             </div>';
+
+                        echo '
+                            <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="action-v2" value="transaction-verify">
+                                <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
+                                <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
+
+                                '.$inputFieldHtml.'
+
+                                <button class="btn btn-primary w-100 payment-form-btn mt-3" type="submit">'.$data['lang']['verify'].'</button>
+                            </form>
+                        ';
                     }
-
-                    echo '
-                        <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
-                            <input type="hidden" name="action-v2" value="transaction-verify">
-                            <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
-                            <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
-
-                            '.$inputFieldHtml.'
-
-                            <button class="btn btn-primary w-100 payment-form-btn mt-3" type="submit">'.$data['lang']['verify'].'</button>
-                        </form>
-
-                        <script data-cfasync="false">
-                            function pp_proceed_to_step2() {
-                                const input1 = document.getElementById("pp-step1-mobile-input");
-                                const input2 = document.getElementById("pp-step2-mobile-input");
-                                if (!input1 || !input1.value.trim() || input1.value.trim().length < 11) {
-                                    alert("Please enter a valid account number (e.g. 017XXXXXXXX)");
-                                    return;
-                                }
-                                if (input2) {
-                                    input2.value = input1.value.trim();
-                                }
-                                const step1 = document.getElementById("pp-step1-account-wrapper");
-                                const step2 = document.getElementById("pp-step2-instructions-wrapper");
-                                if (step1) step1.style.display = "none";
-                                if (step2) step2.style.display = "block";
-                            }
-
-                            function pp_back_to_step1() {
-                                const step1 = document.getElementById("pp-step1-account-wrapper");
-                                const step2 = document.getElementById("pp-step2-instructions-wrapper");
-                                if (step2) step2.style.display = "none";
-                                if (step1) step1.style.display = "block";
-                            }
-
-                            document.addEventListener("DOMContentLoaded", function() {
-                                const form = document.querySelector(".payment-form-submit");
-                                const mobileWrapper = form.querySelector(`.form-group[style*="display: none"]`);
-                                const submitBtn = form.querySelector(".payment-form-btn");
-
-                                form.addEventListener("submit", function(e) {
-                                    e.preventDefault();
-
-                                    const formData = new FormData(form);
-
-                                    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>`;
-
-                                    fetch("", {
-                                        method: "POST",
-                                        body: formData
-                                    })
-                                    .then(res => res.json())
-                                    .then(data => {
-                                        submitBtn.innerHTML = `'.$data['lang']['verify'].'`;
-
-                                        if(data.status === "true") {
-                                            success(data);
-                                        } else if(data.status === "false") {
-                                            if(data.visible_number && data.visible_number === "true") {
-                                                if(mobileWrapper) mobileWrapper.style.display = "block";
-                                            }
-                                            failed(data.title, data.message);
-                                        } else {
-                                            failed("Unexpected Response", "Please try again later.");
-                                        }
-                                    })
-                                    .catch(err => {
-                                        submitBtn.innerHTML = `'.$data['lang']['verify'].'`;
-                                        console.error(err);
-                                        failed("Request Error", "Something went wrong. Please try again.");
-                                    });
-                                });
-                            });
-
-                        </script>
-
-                    ';
                 }
-                echo '</div>';
-                if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "manual"){
+            }
+            echo '</div>';
+            if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "manual"){
                     if(isset($gateway_info['verify_by']) && $gateway_info['verify_by'] == "trxid"){
                         echo '
                             <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
@@ -3652,7 +3657,7 @@
                         }
                     }
                 }
-            }
+                echo '</div>';
 
             if(isset($_GET['pp_callback'])){
                 if (is_callable([$gateway, 'callback'])) {
