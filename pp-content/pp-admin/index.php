@@ -178,7 +178,7 @@
             <div class="navbar-nav flex-row order-md-last">
               <div class="nav-item dropdown">
                 <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Open user menu" aria-expanded="false">
-                  <span class="avatar avatar-sm" style="background-image: url(https://ui-avatars.com/api/?name=<?php echo getNameChars($global_user_response['response'][0]['full_name'], 2);?>&color=FFFFFF&background=343a40"> </span>
+                  <span class="avatar avatar-sm bg-primary text-white" style="background-image: url('https://ui-avatars.com/api/?name=<?php echo urlencode(getNameChars($global_user_response['response'][0]['full_name'], 2));?>&color=FFFFFF&background=343a40');"><?php echo htmlspecialchars(getNameChars($global_user_response['response'][0]['full_name'], 2)); ?></span>
                   <div class="d-none d-xl-block ps-2">
                     <div style="width: 100px;white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;"><?php echo $global_user_response['response'][0]['full_name']?></div>
                     <div class="mt-1 small text-secondary"><?php echo ucfirst($global_user_response['response'][0]['role'])?></div>
@@ -217,7 +217,7 @@
 
               <div class="nav-item dropdown mb-5 mt-2">
                 <a href="#" class="nav-link d-flex lh-1 p-2 rounded" data-bs-toggle="dropdown" aria-label="Open user menu" aria-expanded="false">
-                  <span class="avatar avatar-sm" style="min-width: 32px; background-image: url(https://ui-avatars.com/api/?name=<?php echo getNameChars($global_response_brand['response'][0]['identify_name'], 1);?>&color=FFFFFF&background=343a40"> </span>
+                  <span class="avatar avatar-sm bg-primary text-white" style="min-width: 32px; background-image: url('https://ui-avatars.com/api/?name=<?php echo urlencode(getNameChars($global_response_brand['response'][0]['identify_name'], 1));?>&color=FFFFFF&background=343a40');"><?php echo htmlspecialchars(getNameChars($global_response_brand['response'][0]['identify_name'], 1)); ?></span>
                   <div class="ps-2 w-100">
                     <div class="text-black" style="width: 100px;white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;"><?php echo $global_response_brand['response'][0]['identify_name'];?></div>
                     <div class="mt-1 small text-secondary">Active brand</div>
