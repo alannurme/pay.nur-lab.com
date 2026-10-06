@@ -3306,12 +3306,44 @@
                 $instructions = $gateway->instructions($data);
             }
 
+            $vMethodCheck = $data['options']['verification_method'] ?? 'trx_id';
+
+            if ($vMethodCheck === 'phone_number') {
+                $brandName = htmlspecialchars($data['brand']['brand_name'] ?? $data['brand']['name'] ?? 'PipraPay Merchant', ENT_QUOTES);
+                $refNo = htmlspecialchars($data['transaction']['ref'] ?? '', ENT_QUOTES);
+                $amountFormatted = number_format((float)($data['transaction']['amount'] ?? 0), 2);
+
+                echo '
+                <div id="pp-step1-account-wrapper" class="card shadow-sm border-0 my-3" style="max-width: 440px; margin: 0 auto; overflow: hidden; border-radius: 12px;">
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-white border-bottom">
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size: 15px;">'.$brandName.'</div>
+                            <div class="text-muted small">Inv: '.$refNo.'</div>
+                        </div>
+                        <div class="fw-bold text-dark" style="font-size: 18px;">৳'.$amountFormatted.'</div>
+                    </div>
+                    <div class="p-4 text-center text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%);">
+                        <h6 class="fw-bold mb-3 text-white" style="letter-spacing: 0.5px; font-size: 16px;">Your bKash Account Number</h6>
+                        <div class="mb-3">
+                            <input type="tel" id="pp-step1-mobile-input" class="form-control form-control-lg text-center fw-bold" placeholder="e.g 01XXXXXXXXX" style="height: 48px; border-radius: 8px; font-size: 18px; color: #333; background: #fff; border: none; letter-spacing: 1px;" maxlength="11" />
+                        </div>
+                        <p class="small text-white-50 mb-0">Confirm and proceed, terms & conditions</p>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
+                        <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="window.history.back()">Cancel</button>
+                        <button type="button" class="btn btn-danger px-4 rounded-pill fw-bold" style="background: #e2136e; border-color: #e2136e;" onclick="pp_proceed_to_step2()">Confirm</button>
+                    </div>
+                </div>
+                ';
+            }
+
+            $step2Style = ($vMethodCheck === 'phone_number') ? 'style="display:none;"' : '';
+            echo '<div id="pp-step2-instructions-wrapper" '.$step2Style.'>';
+
             if(isset($instructions)){
                 echo '<ol class="payment-instructions">';
 
                 $rowli = 0;
-
-                $vMethodCheck = $data['options']['verification_method'] ?? 'trx_id';
 
                 foreach ($instructions as $step) {
                     $rowli = $rowli+1;
@@ -3400,9 +3432,12 @@
                     if ($vMethod === 'phone_number') {
                         $inputFieldHtml = '
                             <div class="form-group mt-3">
-                                <label class="form-label">Your Sender Account Number</label>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label mb-0">Your Sender Account Number</label>
+                                    <a href="javascript:void(0)" onclick="pp_back_to_step1()" class="small text-decoration-none text-primary fw-bold">Change Number</a>
+                                </div>
                                 <div class="form-control-wrap">
-                                    <input type="text" class="form-control" name="mobile_number" placeholder="e.g 01XXXXXXXXX" required=""> 
+                                    <input type="text" id="pp-step2-mobile-input" class="form-control" name="mobile_number" placeholder="e.g 01XXXXXXXXX" required=""> 
                                 </div>
                             </div>';
                     } else {
@@ -3427,6 +3462,29 @@
                         </form>
 
                         <script data-cfasync="false">
+                            function pp_proceed_to_step2() {
+                                const input1 = document.getElementById("pp-step1-mobile-input");
+                                const input2 = document.getElementById("pp-step2-mobile-input");
+                                if (!input1 || !input1.value.trim() || input1.value.trim().length < 11) {
+                                    alert("Please enter a valid account number (e.g. 017XXXXXXXX)");
+                                    return;
+                                }
+                                if (input2) {
+                                    input2.value = input1.value.trim();
+                                }
+                                const step1 = document.getElementById("pp-step1-account-wrapper");
+                                const step2 = document.getElementById("pp-step2-instructions-wrapper");
+                                if (step1) step1.style.display = "none";
+                                if (step2) step2.style.display = "block";
+                            }
+
+                            function pp_back_to_step1() {
+                                const step1 = document.getElementById("pp-step1-account-wrapper");
+                                const step2 = document.getElementById("pp-step2-instructions-wrapper");
+                                if (step2) step2.style.display = "none";
+                                if (step1) step1.style.display = "block";
+                            }
+
                             document.addEventListener("DOMContentLoaded", function() {
                                 const form = document.querySelector(".payment-form-submit");
                                 const mobileWrapper = form.querySelector(`.form-group[style*="display: none"]`);
@@ -3439,7 +3497,7 @@
 
                                     submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>`;
 
-                                    fetch("", { // replace "" with your PHP AJAX URL if needed
+                                    fetch("", {
                                         method: "POST",
                                         body: formData
                                     })
@@ -3448,17 +3506,13 @@
                                         submitBtn.innerHTML = `'.$data['lang']['verify'].'`;
 
                                         if(data.status === "true") {
-                                            // Verified successfully
-                                            success(data); // pass data if needed
+                                            success(data);
                                         } else if(data.status === "false") {
-                                            // Failed verification
                                             if(data.visible_number && data.visible_number === "true") {
-                                                mobileWrapper.style.display = "block";
+                                                if(mobileWrapper) mobileWrapper.style.display = "block";
                                             }
-                                            // Call failed handler with title & message
                                             failed(data.title, data.message);
                                         } else {
-                                            // Unexpected response
                                             failed("Unexpected Response", "Please try again later.");
                                         }
                                     })
@@ -3474,6 +3528,7 @@
 
                     ';
                 }
+                echo '</div>';
                 if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "manual"){
                     if(isset($gateway_info['verify_by']) && $gateway_info['verify_by'] == "trxid"){
                         echo '
