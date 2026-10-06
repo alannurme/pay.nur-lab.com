@@ -3311,11 +3311,16 @@
 
                 $rowli = 0;
 
+                $vMethodCheck = $data['options']['verification_method'] ?? 'trx_id';
+
                 foreach ($instructions as $step) {
                     $rowli = $rowli+1;
 
                     // Resolve language directly
                     $text = $lang[$step['text']] ?? $step['text'];
+                    if ($vMethodCheck === 'phone_number' && $step['text'] == '7') {
+                        $text = ($language === 'bn') ? 'আপনার বিকাশ/নগদ নম্বর নিচের বক্সে লিখুন এবং নিশ্চিত করুন চাপুন।' : 'Put your bKash/Nagad account number below and press Confirm';
+                    }
 
                     // Replace variables
                     if (!empty($step['vars'])) {
@@ -3390,28 +3395,36 @@
 
             if(isset($gateway_info)){
                 if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
+                    $vMethod = $data['options']['verification_method'] ?? 'trx_id';
+
+                    if ($vMethod === 'phone_number') {
+                        $inputFieldHtml = '
+                            <div class="form-group mt-3">
+                                <label class="form-label">Your Sender Account Number</label>
+                                <div class="form-control-wrap">
+                                    <input type="text" class="form-control" name="mobile_number" placeholder="e.g 01XXXXXXXXX" required=""> 
+                                </div>
+                            </div>';
+                    } else {
+                        $inputFieldHtml = '
+                            <div class="form-group mt-3">
+                                <label class="form-label">'.$data['lang']['transaction_id'].'</label>
+                                <div class="form-control-wrap">
+                                    <input type="text" class="form-control" name="trxid" placeholder="'.$data['lang']['enter_transaction_id'].'" required=""> 
+                                </div>
+                            </div>';
+                    }
+
                     echo '
                         <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
                             <input type="hidden" name="action-v2" value="transaction-verify">
                             <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
                             <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
 
-                            <div class="form-group  mt-3" style="display: none">
-                                <label class="form-label">'.$data['lang']['mobile_number'].'</label>
-                                <div class="form-control-wrap">
-                                    <input type="text" class="form-control" name="mobile_number" placeholder="'.$data['lang']['mobile_number'].'"> 
-                                </div>
-                            </div>
-
-                            <div class="form-group  mt-3">
-                                <label class="form-label">'.$data['lang']['transaction_id'].'</label>
-                                <div class="form-control-wrap">
-                                    <input type="text" class="form-control" name="trxid" placeholder="'.$data['lang']['enter_transaction_id'].'" required=""> 
-                                </div>
-                            </div>
+                            '.$inputFieldHtml.'
 
                             <button class="btn btn-primary w-100 payment-form-btn mt-3" type="submit">'.$data['lang']['verify'].'</button>
-                        </form>
+                        </form>';
 
                         <script data-cfasync="false">
                             document.addEventListener("DOMContentLoaded", function() {
