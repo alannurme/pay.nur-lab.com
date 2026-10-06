@@ -3425,6 +3425,94 @@
                         </div>
                     </form>
                 </div>
+
+                <script data-cfasync="false">
+                    function pp_check_step1_validity() {
+                        const input = document.getElementById("pp-step1-mobile-input");
+                        const btn = document.getElementById("pp-step1-confirm-btn");
+                        if (!input || !btn) return;
+
+                        // Sanitize to digits only
+                        let val = input.value.replace(/\\D/g, "");
+                        if (input.value !== val) {
+                            input.value = val;
+                        }
+
+                        // Check BD mobile format (starts with 01 and 11 digits total)
+                        const isValid = /^01[3-9]\\d{8}$/.test(val);
+                        if (isValid) {
+                            btn.disabled = false;
+                            btn.style.opacity = "1";
+                            btn.style.cursor = "pointer";
+                            btn.style.background = "#e2136e";
+                            btn.style.borderColor = "#e2136e";
+                            btn.className = "btn btn-danger px-4 rounded-pill fw-bold";
+                        } else {
+                            btn.disabled = true;
+                            btn.style.opacity = "0.6";
+                            btn.style.cursor = "not-allowed";
+                            btn.style.background = "#ccc";
+                            btn.style.borderColor = "#ccc";
+                            btn.className = "btn btn-secondary px-4 rounded-pill fw-bold";
+                        }
+                    }
+
+                    function pp_proceed_to_step2() {
+                        const input = document.getElementById("pp-step1-mobile-input");
+                        const val = input ? input.value.trim() : "";
+                        if (!/^01[3-9]\\d{8}$/.test(val)) return;
+
+                        const step1 = document.getElementById("pp-step1-account-wrapper");
+                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
+                        const hiddenInput = document.getElementById("pp-step2-mobile-input");
+
+                        if (step1) step1.style.display = "none";
+                        if (step2) step2.style.display = "block";
+                        if (hiddenInput) hiddenInput.value = val;
+
+                        pp_start_countdown();
+                    }
+
+                    function pp_back_to_step1() {
+                        const step1 = document.getElementById("pp-step1-account-wrapper");
+                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
+                        if (step1) step1.style.display = "block";
+                        if (step2) step2.style.display = "none";
+                    }
+
+                    let ppTimerInterval = null;
+                    function pp_start_countdown() {
+                        if (ppTimerInterval) clearInterval(ppTimerInterval);
+                        let duration = 300; // 5 minutes
+                        const display = document.getElementById("pp-timer");
+
+                        ppTimerInterval = setInterval(function () {
+                            let minutes = parseInt(duration / 60, 10);
+                            let seconds = parseInt(duration % 60, 10);
+
+                            minutes = minutes < 10 ? "0" + minutes : minutes;
+                            seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                            if (display) display.textContent = minutes + ":" + seconds;
+
+                            if (--duration < 0) {
+                                clearInterval(ppTimerInterval);
+                                if (display) display.textContent = "Expired";
+                            }
+                        }, 1000);
+                    }
+
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const input = document.getElementById("pp-step1-mobile-input");
+                        if (input) {
+                            input.addEventListener("keyup", pp_check_step1_validity);
+                            input.addEventListener("paste", function() {
+                                setTimeout(pp_check_step1_validity, 50);
+                            });
+                            pp_check_step1_validity();
+                        }
+                    });
+                </script>
                 ';
             } else {
                 if(isset($instructions)){
