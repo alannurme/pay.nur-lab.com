@@ -9644,8 +9644,14 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                     exit();
                                                 }
 
-                                                $params = [ ':sender_key' => $gateway_info['sender_key'], ':type' => $gateway_info['sender_type'], ':number' => $mobile_number, ':status' => 'approved' ];
-                                                $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND type = :type AND number = :number AND status = :status ORDER BY id DESC LIMIT 1', '* FROM', $params), true);
+                                                $cleanMobile = ltrim($mobile_number, '0');
+                                                $params = [ 
+                                                    ':sender_key' => $gateway_info['sender_key'], 
+                                                    ':number'     => $mobile_number, 
+                                                    ':like_num'   => '%' . $cleanMobile,
+                                                    ':status'     => 'approved' 
+                                                ];
+                                                $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND (number = :number OR number LIKE :like_num) AND status = :status ORDER BY id DESC LIMIT 1', '* FROM', $params), true);
 
                                                 if($response_pending_SMSTransaction['status'] == true){
                                                     $trxid = $response_pending_SMSTransaction['response'][0]['trx_id'];
