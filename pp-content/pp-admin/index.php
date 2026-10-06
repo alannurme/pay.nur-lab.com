@@ -940,7 +940,7 @@
 
         function getAdminPath(url) {
             if (!url) return 'dashboard';
-            let cleanUrl = url.split('?')[0]; 
+            let cleanUrl = url.split('#')[0].split('?')[0]; 
             let adminSlug = '<?php echo trim($path_admin, "/"); ?>';
             let index = cleanUrl.indexOf(adminSlug);
             if (index === -1) return 'dashboard';
@@ -1044,6 +1044,16 @@
                         path: url, 
                         nav_id: nav_id 
                     }, "", url);
+                }
+
+                if (url.includes('#')) {
+                    const hash = url.split('#')[1];
+                    const targetEl = document.getElementById(hash);
+                    if (targetEl) {
+                        setTimeout(() => {
+                            targetEl.scrollIntoView({ behavior: 'smooth' });
+                        }, 100);
+                    }
                 }
             })
             .catch(error => {
