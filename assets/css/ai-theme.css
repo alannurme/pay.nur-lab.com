@@ -62,7 +62,23 @@ body, html {
     color: #94a3b8 !important;
 }
 
-h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .card-title, .page-title, strong, b {
+/* Override hardcoded text-dark and text-black classes for dark theme */
+.text-dark, 
+.text-black, 
+p.text-dark, 
+p.text-black,
+div.text-dark, 
+div.text-black,
+span.text-dark, 
+span.text-black,
+code.text-dark,
+[class*="text-dark"],
+[class*="text-black"] {
+    color: #cbd5e1 !important;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .card-title, .page-title, strong, b,
+h1.text-dark, h2.text-dark, h3.text-dark, h4.text-dark, h5.text-dark, h6.text-dark, .card-title.text-dark {
     color: #ffffff !important;
     font-family: 'Outfit', sans-serif !important;
     font-weight: 700 !important;
@@ -76,6 +92,7 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .card-title, .page-title, 
 .link-secondary:hover, a.link-secondary:hover {
     color: #38bdf8 !important;
 }
+
 
 
 /* --------------------------------------------------------------------------
