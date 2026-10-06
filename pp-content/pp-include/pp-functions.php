@@ -2233,7 +2233,7 @@
             echo '
                 <link rel="stylesheet" href="'.$site_url.'assets/css/tabler.min.css?v=1.7" />
                 <link rel="stylesheet" href="'.$site_url.'assets/css/choices.min.css">
-                <link rel="stylesheet" href="'.$site_url.'assets/css/ai-theme.css?v=2.0" />
+                <link rel="stylesheet" href="'.$site_url.'assets/css/ai-theme.css?v=3.0" />
 
                 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-flags.min.css" />
                 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-payments.min.css" />
