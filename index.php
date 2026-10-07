@@ -413,12 +413,12 @@
                             $checkout_type = $segments[2] ?? null;
 
                             if($checkout_type == "redirect"){
-                                $fullName      = $data['full_name'] ?? '';
-                                $email         = $data['email_address'] ?? '';
-                                $mobile        = $data['mobile_number'] ?? '';
+                                $fullName      = $data['full_name'] ?? $data['customer_name'] ?? '';
+                                $email         = $data['email_address'] ?? $data['customer_email'] ?? '';
+                                $mobile        = $data['mobile_number'] ?? $data['customer_phone'] ?? $data['phone'] ?? '';
                                 $amount        = $data['amount'] ?? '0';
                                 $currency      = $data['currency'] ?? 'BDT';
-                                $returnUrl     = $data['return_url'] ?? '';
+                                $returnUrl     = $data['return_url'] ?? $data['redirect_url'] ?? '';
                                 $webhookUrl    = $data['webhook_url'] ?? '';
                                 $metadataRaw   = $data['metadata'] ?? '{}';
 

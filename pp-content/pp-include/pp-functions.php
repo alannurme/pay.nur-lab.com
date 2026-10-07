@@ -67,16 +67,30 @@
             $headers = getallheaders();
             if (is_array($headers)) {
                 foreach ($headers as $key => $val) {
-                    if (strcasecmp($key, 'MHS-PIPRAPAY-API-KEY') === 0) {
+                    if (strcasecmp($key, 'MHS-PIPRAPAY-API-KEY') === 0 || strcasecmp($key, 'X-API-KEY') === 0) {
                         return trim((string)$val);
+                    }
+                    if (strcasecmp($key, 'Authorization') === 0) {
+                        $authHeader = trim((string)$val);
+                        if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+                            return trim($matches[1]);
+                        }
+                        return $authHeader;
                     }
                 }
             }
         }
     
         foreach ($_SERVER as $key => $value) {
-            if (strcasecmp($key, 'HTTP_MHS_PIPRAPAY_API_KEY') === 0) {
+            if (strcasecmp($key, 'HTTP_MHS_PIPRAPAY_API_KEY') === 0 || strcasecmp($key, 'HTTP_X_API_KEY') === 0) {
                 return trim((string)$value);
+            }
+            if (strcasecmp($key, 'HTTP_AUTHORIZATION') === 0 || strcasecmp($key, 'REDIRECT_HTTP_AUTHORIZATION') === 0) {
+                $authHeader = trim((string)$value);
+                if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+                    return trim($matches[1]);
+                }
+                return $authHeader;
             }
         }
     
