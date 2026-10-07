@@ -3366,8 +3366,9 @@
                                 <div class="fw-bold" style="font-size: 10px; letter-spacing: 1px; color: #e2136e !important; text-transform: uppercase;">'.$numberType.'</div>
                                 <div class="fw-bold" style="font-size: 20px; letter-spacing: 1px; color: #1e293b !important;">'.$targetNumber.'</div>
                             </div>
-                            <button type="button" class="btn btn-sm rounded-circle shadow-sm" onclick="copy_value(\''.$targetNumber.'\')" title="Copy Number" style="width: 42px; height: 42px; background: #e2136e !important; border: 1px solid #c10e5d !important; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
+                            <button type="button" class="btn btn-sm shadow-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5" onclick="copy_value(\''.$targetNumber.'\')" title="Copy Number" style="background: #e2136e !important; color: #ffffff !important; border: none !important; font-size: 12px; cursor: pointer;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
+                                <span>Copy</span>
                             </button>
                         </div>
 

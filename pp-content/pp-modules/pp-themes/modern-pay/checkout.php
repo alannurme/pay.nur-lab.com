@@ -540,6 +540,32 @@
                 gap: 3px !important;
             }
         }
+
+        /* High-contrast text overrides for Details tab & cards */
+        #gateways-details .card,
+        #gateways-details .card * {
+            opacity: 1 !important;
+        }
+
+        #gateways-details .text-muted,
+        .mp-info-list .text-muted,
+        .mp-info-list li span:first-child {
+            color: #475569 !important;
+            font-weight: 600 !important;
+        }
+
+        #gateways-details .fw-bold,
+        #gateways-details .fw-semibold,
+        #gateways-details .text-dark,
+        .mp-info-list li span:last-child {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+
+        #gateways-details .badge.bg-primary-subtle {
+            background-color: #e0e7ff !important;
+            color: #3730a3 !important;
+        }
     </style>
 </head>
 <body>
