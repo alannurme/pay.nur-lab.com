@@ -3392,7 +3392,7 @@
                             </div>
                             <button type="button" id="pp-copy-num-btn" class="btn btn-sm shadow-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5" onclick="copy_value(\''.$targetNumber.'\'); if(typeof pp_mark_copied === \'function\') pp_mark_copied(this);" title="Copy Number" style="background: #e2136e !important; color: #ffffff !important; border: none !important; font-size: 12px; cursor: pointer;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
-                                <span>Copy</span>
+                                <span style="color: #ffffff !important;">Copy</span>
                             </button>
                         </div>
 

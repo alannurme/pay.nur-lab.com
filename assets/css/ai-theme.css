@@ -68,9 +68,8 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .card-title, .page-title, 
 }
 
 /* Gateway Instruction Boxes & Colored Containers - BRIGHT WHITE TEXT FOR READABILITY */
-div[style*="background"], 
-div[style*="background-color"], 
-div[style*="background :"],
+div[style*="background"]:not([style*="fff"]):not([style*="255"]):not(.card):not(.mp-card):not(#gateways-details), 
+div[style*="background-color"]:not([style*="fff"]):not([style*="255"]):not(.card):not(.mp-card):not(#gateways-details), 
 .gateway-instruction, 
 .instruction-box, 
 .alert-primary, 
@@ -88,20 +87,20 @@ div[style*="background :"],
     color: #ffffff !important;
 }
 
-div[style*="background"] p, 
-div[style*="background"] span, 
-div[style*="background"] div, 
-div[style*="background"] li, 
-div[style*="background"] label,
-div[style*="background"] b,
-div[style*="background"] strong,
-div[style*="background-color"] p, 
-div[style*="background-color"] span, 
-div[style*="background-color"] div, 
-div[style*="background-color"] li, 
-div[style*="background-color"] label,
-div[style*="background-color"] b,
-div[style*="background-color"] strong,
+div[style*="background"]:not(.card):not(.mp-card):not(#gateways-details) p, 
+div[style*="background"]:not(.card):not(.mp-card):not(#gateways-details) span, 
+div[style*="background"]:not(.card):not(.mp-card):not(#gateways-details) div, 
+div[style*="background"]:not(.card):not(.mp-card):not(#gateways-details) li, 
+div[style*="background"]:not(.card):not(.mp-card):not(#gateways-details) label,
+div[style*="background"]:not(.card):not(.mp-card):not(#gateways-details) b,
+div[style*="background"]:not(.card):not(.mp-card):not(#gateways-details) strong,
+div[style*="background-color"]:not(.card):not(.mp-card):not(#gateways-details) p, 
+div[style*="background-color"]:not(.card):not(.mp-card):not(#gateways-details) span, 
+div[style*="background-color"]:not(.card):not(.mp-card):not(#gateways-details) div, 
+div[style*="background-color"]:not(.card):not(.mp-card):not(#gateways-details) li, 
+div[style*="background-color"]:not(.card):not(.mp-card):not(#gateways-details) label,
+div[style*="background-color"]:not(.card):not(.mp-card):not(#gateways-details) b,
+div[style*="background-color"]:not(.card):not(.mp-card):not(#gateways-details) strong,
 .gateway-instruction *, 
 .instruction-box * {
     color: #ffffff !important;
@@ -445,7 +444,7 @@ div[class*="pay-card"] {
 }
 
 /* Checkout Theme Gateway Cards in Light Mode */
-.mp-gateway-card, .gateway-item, .gateway-card, div[class*="gateway-card"] {
+.mp-gateway-card, .gateway-item {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     color: #0f172a !important;
@@ -453,13 +452,13 @@ div[class*="pay-card"] {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
 }
 
-.mp-gateway-card:hover, .gateway-item:hover, div[class*="gateway-card"]:hover {
+.mp-gateway-card:hover, .gateway-item:hover {
     background: #f8fafc !important;
     border-color: #6366f1 !important;
     box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15) !important;
 }
 
-.mp-gateway-card div, .mp-gateway-card span, .gateway-item span, .gateway-item div, div[class*="gateway-card"] * {
+.mp-gateway-card div, .mp-gateway-card span, .gateway-item span, .gateway-item div {
     color: #0f172a !important;
     font-weight: 700 !important;
 }
@@ -468,12 +467,10 @@ div[class*="pay-card"] {
 .total-bar, 
 div[class*="total-bar"], 
 div[class*="amount-bar"],
-.rounded-pill[style*="background"],
 .mp-total-bar *, 
 .total-bar *, 
 div[class*="total-bar"] *, 
-div[class*="amount-bar"] *,
-.rounded-pill[style*="background"] * {
+div[class*="amount-bar"] * {
     color: #4f46e5 !important;
     font-weight: 800 !important;
     text-shadow: none !important;
