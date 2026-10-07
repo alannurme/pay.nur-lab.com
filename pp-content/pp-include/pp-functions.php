@@ -3331,7 +3331,7 @@
                     </div>
                     <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
                         <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="window.history.back()">Cancel</button>
-                        <button type="button" id="pp-step1-confirm-btn" class="btn btn-secondary px-4 rounded-pill fw-bold" disabled style="opacity: 0.6; cursor: not-allowed; background: #ccc; border-color: #ccc;" onclick="pp_proceed_to_step2()">Confirm</button>
+                        <button type="button" id="pp-step1-confirm-btn" class="btn btn-secondary px-4 rounded-pill fw-bold text-muted" disabled style="opacity: 0.7; cursor: not-allowed; background: #e9ecef; border-color: #ced4da; color: #6c757d;" onclick="pp_proceed_to_step2()">Confirm</button>
                     </div>
                 </div>
                 ';
@@ -3361,13 +3361,13 @@
                     <!-- Pink Body -->
                     <div class="p-3 text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%); font-size: 13px;">
                         <!-- Target Number Box -->
-                        <div class="p-2 mb-3 rounded d-flex justify-content-between align-items-center" style="background: rgba(0,0,0,0.18); border: 1px dashed rgba(255,255,255,0.35);">
+                        <div class="p-2 mb-3 rounded d-flex justify-content-between align-items-center bg-white shadow-sm" style="border: 1px solid #fcd6e5;">
                             <div>
-                                <div style="font-size: 10px; letter-spacing: 1px; opacity: 0.85; text-transform: uppercase;">'.$numberType.'</div>
-                                <div class="fw-bold text-white" style="font-size: 20px; letter-spacing: 1px;">'.$targetNumber.'</div>
+                                <div class="fw-bold text-danger" style="font-size: 10px; letter-spacing: 1px; color: #e2136e !important; text-transform: uppercase;">'.$numberType.'</div>
+                                <div class="fw-bold text-dark" style="font-size: 20px; letter-spacing: 1px; color: #212529 !important;">'.$targetNumber.'</div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="copy_value(\''.$targetNumber.'\')" title="Copy Number" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
+                            <button type="button" class="btn btn-sm rounded-circle shadow-sm" onclick="copy_value(\''.$targetNumber.'\')" title="Copy Number" style="width: 38px; height: 38px; background: #fff5f8; border: 1px solid #fcd6e5; display: flex; align-items: center; justify-content: center;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
                             </button>
                         </div>
 
@@ -3454,14 +3454,16 @@
                             btn.style.cursor = "pointer";
                             btn.style.background = "#e2136e";
                             btn.style.borderColor = "#e2136e";
-                            btn.className = "btn btn-danger px-4 rounded-pill fw-bold";
+                            btn.style.color = "#ffffff";
+                            btn.className = "btn btn-danger px-4 rounded-pill fw-bold text-white";
                         } else {
                             btn.disabled = true;
-                            btn.style.opacity = "0.6";
+                            btn.style.opacity = "0.7";
                             btn.style.cursor = "not-allowed";
-                            btn.style.background = "#ccc";
-                            btn.style.borderColor = "#ccc";
-                            btn.className = "btn btn-secondary px-4 rounded-pill fw-bold";
+                            btn.style.background = "#e9ecef";
+                            btn.style.borderColor = "#ced4da";
+                            btn.style.color = "#6c757d";
+                            btn.className = "btn btn-secondary px-4 rounded-pill fw-bold text-muted";
                         }
                     }
 

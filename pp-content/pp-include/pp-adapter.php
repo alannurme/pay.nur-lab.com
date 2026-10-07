@@ -9645,7 +9645,8 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                 }
 
                                                 $cleanMobile = ltrim($mobile_number, '0');
-                                                $txnCreatedDate = $response_transaction['response'][0]['created_date'] ?? date('Y-m-d H:i:s', strtotime('-15 minutes'));
+                                                // Allow SMS created up to 30 minutes prior to initiation to handle server clock differences
+                                                $txnCreatedDate = date('Y-m-d H:i:s', strtotime(($response_transaction['response'][0]['created_date'] ?? date('Y-m-d H:i:s')) . ' -30 minutes'));
                                                 $params = [ 
                                                     ':sender_key' => $gateway_info['sender_key'], 
                                                     ':number'     => $mobile_number, 
@@ -9678,9 +9679,9 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                 if($response_Checktransaction['status'] == true && $response_Checktransaction['response'][0]['id'] != $response_transaction['response'][0]['id']){
                                                     echo json_encode(['status' => "false", 'title' => 'Duplicate Transaction ID', 'message' => 'This Transaction ID is already exits. Please provide a different one.']);
                                                 }else{
-                                                    $params = [ ':sender_key' => $gateway_info['sender_key'], ':type' => $gateway_info['sender_type'], ':trx_id' => $trxid, ':status' => 'approved' ];
+                                                    $params = [ ':sender_key' => $gateway_info['sender_key'], ':trx_id' => $trxid, ':status' => 'approved' ];
 
-                                                    $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND type = :type AND trx_id = :trx_id AND status = :status', '* FROM', $params), true);
+                                                    $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND trx_id = :trx_id AND status = :status', '* FROM', $params), true);
                                                     if($response_pending_SMSTransaction['status'] == true){
 
                                                         $response_brand = json_decode(getData($db_prefix.'brands',' WHERE brand_id ="'.$response_transaction['response'][0]['brand_id'].'"'),true);
