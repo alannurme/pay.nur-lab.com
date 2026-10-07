@@ -9645,13 +9645,15 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                 }
 
                                                 $cleanMobile = ltrim($mobile_number, '0');
+                                                $txnCreatedDate = $response_transaction['response'][0]['created_date'] ?? date('Y-m-d H:i:s', strtotime('-15 minutes'));
                                                 $params = [ 
                                                     ':sender_key' => $gateway_info['sender_key'], 
                                                     ':number'     => $mobile_number, 
                                                     ':like_num'   => '%' . $cleanMobile,
-                                                    ':status'     => 'approved' 
+                                                    ':status'     => 'approved',
+                                                    ':tdate'      => $txnCreatedDate
                                                 ];
-                                                $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND (number = :number OR number LIKE :like_num) AND status = :status ORDER BY id DESC LIMIT 1', '* FROM', $params), true);
+                                                $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND (number = :number OR number LIKE :like_num) AND status = :status AND created_date >= :tdate ORDER BY id DESC LIMIT 1', '* FROM', $params), true);
 
                                                 if($response_pending_SMSTransaction['status'] == true){
                                                     $trxid = $response_pending_SMSTransaction['response'][0]['trx_id'];

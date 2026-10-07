@@ -3408,6 +3408,13 @@
                             <div class="small fw-bold text-white mb-1">◆ পেমেন্ট সম্পন্ন হলে কিছু সময় অপেক্ষা করুন...</div>
                             <div class="small text-white-50">Session expires in <span id="pp-timer" class="fw-bold text-white">05:00</span></div>
                         </div>
+
+                        <!-- Manual TrxID fallback field (shows after timeout) -->
+                        <div id="pp-trxid-fallback-wrapper" class="mt-3 p-2 bg-white rounded text-dark" style="display: none;">
+                            <label class="form-label small fw-bold mb-1 text-danger">Transaction ID দিয়ে ভেরিফাই করুন:</label>
+                            <input type="text" id="pp-manual-trxid-input" class="form-control text-center fw-bold text-uppercase mb-2" placeholder="e.g. 9KHMRFAY5P" />
+                            <small class="text-muted d-block" style="font-size: 10px;">অটো ভেরিফাই না হলে বিকাশ থেকে প্রাপ্ত TrxID প্রদান করুন</small>
+                        </div>
                     </div>
 
                     <!-- Hidden Form & Footer -->
@@ -3416,10 +3423,11 @@
                         <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
                         <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
                         <input type="hidden" id="pp-step2-mobile-input" name="mobile_number" value="">
+                        <input type="hidden" id="pp-step2-trxid-input" name="trxid" value="">
 
                         <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
                             <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="pp_back_to_step1()">Cancel</button>
-                            <button type="submit" class="btn btn-danger px-4 rounded-pill fw-bold payment-form-btn d-flex align-items-center gap-1" style="background: #e2136e; border-color: #e2136e;">
+                            <button type="submit" id="pp-step2-submit-btn" class="btn btn-danger px-4 rounded-pill fw-bold payment-form-btn d-flex align-items-center gap-1" style="background: #e2136e; border-color: #e2136e;">
                                 <span class="spinner-border spinner-border-sm me-1" role="status"></span> Auto verifying...
                             </button>
                         </div>
@@ -3457,6 +3465,51 @@
                         }
                     }
 
+                    let ppAutoPollInterval = null;
+                    function pp_trigger_auto_verify(isManualSubmit) {
+                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
+                        if (!step2 || step2.style.display === "none") return;
+
+                        const form = step2.querySelector("form.payment-form-submit");
+                        if (!form) return;
+
+                        // Sync manual TrxID if typed
+                        const manualTrx = document.getElementById("pp-manual-trxid-input");
+                        const hiddenTrx = document.getElementById("pp-step2-trxid-input");
+                        if (manualTrx && hiddenTrx) {
+                            hiddenTrx.value = manualTrx.value.trim();
+                        }
+
+                        const formData = new FormData(form);
+                        fetch("", {
+                            method: "POST",
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === "true") {
+                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
+                                if (typeof success === "function") {
+                                    success(data);
+                                } else if (data.redirect_url) {
+                                    window.location.href = data.redirect_url;
+                                } else {
+                                    window.location.reload();
+                                }
+                            } else if (isManualSubmit && data.title === "Waiting for Payment") {
+                                // If manually submitted with wrong/unmatched TrxID, mark form processed and close
+                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
+                                if (typeof success === "function") {
+                                    success({ title: "Submitted", message: "Transaction ID submitted for manual review." });
+                                } else {
+                                    alert("Transaction ID submitted for manual review.");
+                                    window.location.reload();
+                                }
+                            }
+                        })
+                        .catch(err => console.error("Auto verify check:", err));
+                    }
+
                     function pp_proceed_to_step2() {
                         const input = document.getElementById("pp-step1-mobile-input");
                         const val = input ? input.value.trim() : "";
@@ -3471,9 +3524,15 @@
                         if (hiddenInput) hiddenInput.value = val;
 
                         pp_start_countdown();
+
+                        // Trigger immediate check & start auto polling every 3 seconds
+                        pp_trigger_auto_verify();
+                        if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
+                        ppAutoPollInterval = setInterval(pp_trigger_auto_verify, 3000);
                     }
 
                     function pp_back_to_step1() {
+                        if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
                         const step1 = document.getElementById("pp-step1-account-wrapper");
                         const step2 = document.getElementById("pp-step2-instructions-wrapper");
                         if (step1) step1.style.display = "block";
@@ -3497,7 +3556,28 @@
 
                             if (--duration < 0) {
                                 clearInterval(ppTimerInterval);
+                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
                                 if (display) display.textContent = "Expired";
+
+                                // Show manual TrxID input option when timeout occurs
+                                const fallbackWrapper = document.getElementById("pp-trxid-fallback-wrapper");
+                                const submitBtn = document.getElementById("pp-step2-submit-btn");
+                                if (fallbackWrapper) fallbackWrapper.style.display = "block";
+                                if (submitBtn) {
+                                    submitBtn.innerHTML = "Verify Transaction ID";
+                                    submitBtn.style.background = "#e2136e";
+                                }
+
+                                const manualInput = document.getElementById("pp-manual-trxid-input");
+                                if (manualInput) {
+                                    manualInput.addEventListener("change", function() {
+                                        const hiddenTrx = document.getElementById("pp-step2-trxid-input");
+                                        if (hiddenTrx) hiddenTrx.value = this.value.trim();
+                                        if (this.value.trim().length >= 8) {
+                                            pp_trigger_auto_verify(true);
+                                        }
+                                    });
+                                }
                             }
                         }, 1000);
                     }
