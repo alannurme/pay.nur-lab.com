@@ -3322,8 +3322,13 @@
                         </div>
                         <div class="fw-bold text-dark" style="font-size: 18px;">৳'.$amountFormatted.'</div>
                     </div>
+                    <!-- Step Progress Indicator -->
+                    <div class="px-3 py-2 bg-light border-bottom d-flex align-items-center justify-content-between" style="font-size: 11px;">
+                        <span class="badge rounded-pill px-2.5 py-1 text-white fw-bold" style="background: #e2136e;">Step 1 of 2</span>
+                        <span class="fw-bold text-secondary">Enter Account Number ➔ Next Step</span>
+                    </div>
                     <div class="p-4 text-center text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%);">
-                        <h6 class="fw-bold mb-3 text-white" style="letter-spacing: 0.5px; font-size: 16px;">Your bKash Account Number</h6>
+                        <h6 class="fw-bold mb-3 text-white" style="letter-spacing: 0.5px; font-size: 16px;">Your bKash / Mobile Banking Account Number</h6>
                         <div class="mb-3">
                             <input type="tel" id="pp-step1-mobile-input" class="form-control form-control-lg text-center fw-bold" placeholder="e.g 01XXXXXXXXX" style="height: 48px; border-radius: 8px; font-size: 18px; color: #333; background: #fff; border: none; letter-spacing: 1px;" maxlength="11" oninput="pp_check_step1_validity()" />
                         </div>
@@ -3357,6 +3362,11 @@
                         </div>
                         <div class="fw-bold text-dark" style="font-size: 18px;">৳'.$amountFormatted.'</div>
                     </div>
+                    <!-- Step Progress Indicator -->
+                    <div class="px-3 py-2 bg-light border-bottom d-flex align-items-center justify-content-between" style="font-size: 11px;">
+                        <span class="badge rounded-pill px-2.5 py-1 text-white fw-bold" style="background: #e2136e;">Step 2 of 2</span>
+                        <span class="fw-bold text-success">✓ Account Saved ➔ Auto Verifying</span>
+                    </div>
 
                     <!-- Pink Body -->
                     <div class="p-3 text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%); font-size: 13px;">
@@ -3366,7 +3376,7 @@
                                 <div class="fw-bold" style="font-size: 10px; letter-spacing: 1px; color: #e2136e !important; text-transform: uppercase;">'.$numberType.'</div>
                                 <div class="fw-bold" style="font-size: 20px; letter-spacing: 1px; color: #1e293b !important;">'.$targetNumber.'</div>
                             </div>
-                            <button type="button" class="btn btn-sm shadow-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5" onclick="copy_value(\''.$targetNumber.'\')" title="Copy Number" style="background: #e2136e !important; color: #ffffff !important; border: none !important; font-size: 12px; cursor: pointer;">
+                            <button type="button" id="pp-copy-num-btn" class="btn btn-sm shadow-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5" onclick="copy_value(\''.$targetNumber.'\'); if(typeof pp_mark_copied === \'function\') pp_mark_copied(this);" title="Copy Number" style="background: #e2136e !important; color: #ffffff !important; border: none !important; font-size: 12px; cursor: pointer;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
                                 <span>Copy</span>
                             </button>
@@ -3436,6 +3446,17 @@
                 </div>
 
                 <script data-cfasync="false">
+                    function pp_mark_copied(btn) {
+                        if (!btn) return;
+                        const originalHtml = btn.innerHTML;
+                        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> <span>Copied!</span>`;
+                        btn.style.setProperty("background-color", "#16a34a", "important");
+                        setTimeout(() => {
+                            btn.innerHTML = originalHtml;
+                            btn.style.setProperty("background-color", "#e2136e", "important");
+                        }, 2000);
+                    }
+
                     function pp_check_step1_validity() {
                         const input = document.getElementById("pp-step1-mobile-input");
                         const btn = document.getElementById("pp-step1-confirm-btn");
@@ -4998,5 +5019,26 @@
             }
         }
     });
+
+    /**
+     * Automatic maintenance cleanup routine for old SMS data (keeps database light and fast)
+     */
+    function pp_cleanup_old_sms_data(int $daysToKeep = 30): int {
+        global $db_prefix;
+        try {
+            $cutoffDate = date('Y-m-d H:i:s', strtotime("-{$daysToKeep} days"));
+            $params = [':cutoff' => $cutoffDate];
+            $res = deleteData($db_prefix . 'sms_data', 'WHERE status = "approved" AND created_date < :cutoff', $params);
+            $parsed = json_decode($res, true);
+            return (int)($parsed['affected_rows'] ?? 0);
+        } catch (\Throwable $e) {
+            error_log('SMS Cleanup error: ' . $e->getMessage());
+            return 0;
+        }
+    }
+    // Auto-trigger lightweight cleanup check once daily
+    if (rand(1, 100) === 1) {
+        pp_cleanup_old_sms_data(30);
+    }
 
 
