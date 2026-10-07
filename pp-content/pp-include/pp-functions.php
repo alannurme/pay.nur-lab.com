@@ -3427,8 +3427,8 @@
 
                         <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
                             <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="pp_back_to_step1()">Cancel</button>
-                            <button type="submit" id="pp-step2-submit-btn" class="btn btn-danger px-4 rounded-pill fw-bold payment-form-btn d-flex align-items-center gap-1" style="background: #e2136e; border-color: #e2136e;">
-                                <span class="spinner-border spinner-border-sm me-1" role="status"></span> Auto verifying...
+                            <button type="submit" id="pp-step2-submit-btn" class="btn px-4 rounded-pill fw-bold text-white payment-form-btn d-flex align-items-center gap-1" style="background: #e2136e !important; border-color: #e2136e !important; color: #ffffff !important;">
+                                <span class="spinner-border spinner-border-sm me-1 text-white" role="status" style="color: #ffffff !important;"></span> Auto verifying...
                             </button>
                         </div>
                     </form>
@@ -3452,18 +3452,18 @@
                             btn.disabled = false;
                             btn.style.opacity = "1";
                             btn.style.cursor = "pointer";
-                            btn.style.background = "#e2136e";
-                            btn.style.borderColor = "#e2136e";
-                            btn.style.color = "#ffffff";
-                            btn.className = "btn btn-danger px-4 rounded-pill fw-bold text-white";
+                            btn.style.setProperty("background-color", "#e2136e", "important");
+                            btn.style.setProperty("border-color", "#e2136e", "important");
+                            btn.style.setProperty("color", "#ffffff", "important");
+                            btn.className = "btn px-4 rounded-pill fw-bold";
                         } else {
                             btn.disabled = true;
                             btn.style.opacity = "0.7";
                             btn.style.cursor = "not-allowed";
-                            btn.style.background = "#e9ecef";
-                            btn.style.borderColor = "#ced4da";
-                            btn.style.color = "#6c757d";
-                            btn.className = "btn btn-secondary px-4 rounded-pill fw-bold text-muted";
+                            btn.style.setProperty("background-color", "#e9ecef", "important");
+                            btn.style.setProperty("border-color", "#ced4da", "important");
+                            btn.style.setProperty("color", "#6c757d", "important");
+                            btn.className = "btn px-4 rounded-pill fw-bold";
                         }
                     }
 
@@ -3680,7 +3680,7 @@
                 }
 
                 if(isset($gateway_info)){
-                    if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
+                    if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation" && $vMethodCheck !== 'phone_number'){
                         $inputFieldHtml = '
                             <div class="form-group mt-3">
                                 <label class="form-label">'.$data['lang']['transaction_id'].'</label>
