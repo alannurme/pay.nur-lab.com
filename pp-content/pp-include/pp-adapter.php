@@ -9534,9 +9534,9 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                     if($gateway_id == "" || $transaction_id == ""){
                         echo json_encode(['status' => "false", 'title' => 'Incomplete Information', 'message' => 'Please fill in all required fields before proceeding.']);
                     }else{
-                        $params = [ ':ref' => $transaction_id, ':status' => 'initiated' ];
+                        $params = [ ':ref' => $transaction_id ];
 
-                        $response_transaction = json_decode(getData($db_prefix.'transaction','WHERE ref = :ref AND status = :status ', '* FROM', $params),true);
+                        $response_transaction = json_decode(getData($db_prefix.'transaction','WHERE ref = :ref AND (status = "initiated" OR status = "pending")', '* FROM', $params),true);
                         if($response_transaction['status'] == true){
                             $params = [ ':brand_id' => $response_transaction['response'][0]['brand_id'] ];
 
@@ -9649,7 +9649,8 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                 $withPlus88 = '+880' . $last10;
                                                 $withZero = '0' . $last10;
 
-                                                $txnCreatedDate = date('Y-m-d H:i:s', strtotime(($response_transaction['response'][0]['created_date'] ?? date('Y-m-d H:i:s')) . ' -30 minutes'));
+                                                // Strictly match SMS received after transaction was confirmed in Step 1 (-2 minutes margin for minor clock difference)
+                                                $txnCreatedDate = date('Y-m-d H:i:s', strtotime(($response_transaction['response'][0]['created_date'] ?? date('Y-m-d H:i:s')) . ' -2 minutes'));
                                                 $params = [ 
                                                     ':sender_key' => $gateway_info['sender_key'], 
                                                     ':num1'       => $mobile_number, 
