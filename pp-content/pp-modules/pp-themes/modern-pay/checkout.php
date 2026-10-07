@@ -348,8 +348,18 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 0;
-            border-bottom: 1px dashed #e2e8f0;
-            font-size: 0.9rem;
+            border-bottom: 1px dashed #cbd5e1;
+            font-size: 0.92rem;
+            color: #334155;
+        }
+
+        .mp-info-list li .text-muted {
+            color: #64748b !important;
+            font-weight: 500;
+        }
+
+        .mp-info-list li span:not(.text-muted) {
+            color: #0f172a;
         }
 
         .mp-info-list li:last-child {
@@ -729,23 +739,45 @@
 
                 <!-- Transaction Details Tab -->
                 <div id="gateways-details" style="display: none;">
-                    <div class="card p-3 border rounded-3 mb-0" style="background: #ffffff;">
+                    <div class="card p-3 border rounded-3 mb-0" style="background: #ffffff; border-radius: 16px;">
+                        <div class="fw-bold mb-3 pb-2 border-bottom text-dark" style="font-size: 1.05rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span><?php echo $data['lang']['invoice_details'] ?? 'Invoice Details'; ?></span>
+                            <span class="badge bg-primary-subtle text-primary fw-bold" style="font-size: 0.75rem; padding: 4px 8px; border-radius: 8px;">
+                                <?php echo htmlspecialchars($data['transaction']['status'] ?? 'pending'); ?>
+                            </span>
+                        </div>
                         <ul class="list-unstyled mp-info-list mb-0">
                             <li>
-                                <span class="text-muted"><?php echo $data['lang']['currency'] ?? 'Currency'; ?></span>
-                                <span class="fw-bold"><?php echo htmlspecialchars($data['transaction']['currency']); ?></span>
+                                <span class="text-muted"><?php echo $data['lang']['invoice_id'] ?? 'INVOICE ID'; ?></span>
+                                <span class="fw-bold text-dark" style="font-family: monospace; font-size: 0.88rem;"><?php echo htmlspecialchars($data['transaction']['pp_id'] ?? $data['transaction']['ref'] ?? 'N/A'); ?></span>
+                            </li>
+                            <?php if(!empty($data['transaction']['customer_name']) && $data['transaction']['customer_name'] !== '--'): ?>
+                            <li>
+                                <span class="text-muted"><?php echo $data['lang']['customer_name'] ?? 'CUSTOMER NAME'; ?></span>
+                                <span class="fw-semibold text-dark"><?php echo htmlspecialchars($data['transaction']['customer_name']); ?></span>
+                            </li>
+                            <?php endif; ?>
+                            <?php if(!empty($data['transaction']['customer_email']) && $data['transaction']['customer_email'] !== '--'): ?>
+                            <li>
+                                <span class="text-muted"><?php echo $data['lang']['email'] ?? 'EMAIL'; ?></span>
+                                <span class="fw-semibold text-dark"><?php echo htmlspecialchars($data['transaction']['customer_email']); ?></span>
+                            </li>
+                            <?php endif; ?>
+                            <li>
+                                <span class="text-muted"><?php echo $data['lang']['currency'] ?? 'CURRENCY'; ?></span>
+                                <span class="fw-bold text-dark"><?php echo htmlspecialchars($data['transaction']['currency'] ?? 'BDT'); ?></span>
                             </li>
                             <li>
-                                <span class="text-muted"><?php echo $data['lang']['subtotal'] ?? 'Subtotal'; ?></span>
-                                <span class="fw-semibold"><?php echo money_round(($data['transaction']['amount'] ?? 0) - ($data['transaction']['discount_amount'] ?? 0), 2) . ' ' . $data['transaction']['currency']; ?></span>
+                                <span class="text-muted"><?php echo $data['lang']['subtotal'] ?? 'SUBTOTAL'; ?></span>
+                                <span class="fw-semibold text-dark"><?php echo money_round(($data['transaction']['amount'] ?? 0) - ($data['transaction']['discount_amount'] ?? 0), 2) . ' ' . ($data['transaction']['currency'] ?? 'BDT'); ?></span>
                             </li>
                             <li>
-                                <span class="text-muted"><?php echo $data['lang']['discount'] ?? 'Discount'; ?></span>
-                                <span class="fw-semibold"><?php echo money_round($data['transaction']['discount_amount'] ?? 0, 2) . ' ' . $data['transaction']['currency']; ?></span>
+                                <span class="text-muted"><?php echo $data['lang']['discount'] ?? 'DISCOUNT'; ?></span>
+                                <span class="fw-semibold text-dark"><?php echo money_round($data['transaction']['discount_amount'] ?? 0, 2) . ' ' . ($data['transaction']['currency'] ?? 'BDT'); ?></span>
                             </li>
                             <li>
-                                <span class="text-muted"><?php echo $data['lang']['total'] ?? 'Total'; ?></span>
-                                <span class="fw-bold" style="color: var(--mp-primary);"><?php echo money_round($data['transaction']['amount'], 2) . ' ' . $data['transaction']['currency']; ?></span>
+                                <span class="text-muted"><?php echo $data['lang']['total'] ?? 'TOTAL'; ?></span>
+                                <span class="fw-bold" style="color: var(--mp-primary); font-size: 1.05rem;"><?php echo money_round($data['transaction']['amount'], 2) . ' ' . ($data['transaction']['currency'] ?? 'BDT'); ?></span>
                             </li>
                         </ul>
                     </div>

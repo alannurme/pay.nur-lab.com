@@ -3363,44 +3363,44 @@
                         <!-- Target Number Box -->
                         <div class="p-2 mb-3 rounded d-flex justify-content-between align-items-center bg-white shadow-sm" style="border: 1px solid #fcd6e5;">
                             <div>
-                                <div class="fw-bold text-danger" style="font-size: 10px; letter-spacing: 1px; color: #e2136e !important; text-transform: uppercase;">'.$numberType.'</div>
-                                <div class="fw-bold text-dark" style="font-size: 20px; letter-spacing: 1px; color: #212529 !important;">'.$targetNumber.'</div>
+                                <div class="fw-bold" style="font-size: 10px; letter-spacing: 1px; color: #e2136e !important; text-transform: uppercase;">'.$numberType.'</div>
+                                <div class="fw-bold" style="font-size: 20px; letter-spacing: 1px; color: #1e293b !important;">'.$targetNumber.'</div>
                             </div>
-                            <button type="button" class="btn btn-sm rounded-circle shadow-sm" onclick="copy_value(\''.$targetNumber.'\')" title="Copy Number" style="width: 38px; height: 38px; background: #fff5f8; border: 1px solid #fcd6e5; display: flex; align-items: center; justify-content: center;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
+                            <button type="button" class="btn btn-sm rounded-circle shadow-sm" onclick="copy_value(\''.$targetNumber.'\')" title="Copy Number" style="width: 42px; height: 42px; background: #e2136e !important; border: 1px solid #c10e5d !important; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
                             </button>
                         </div>
 
                         <!-- Instruction Steps -->
-                        <div class="mb-2 d-flex align-items-start gap-2">
-                            <span class="badge rounded-circle bg-white text-danger fw-bold" style="min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">1</span>
-                            <span>উপরে দেওয়া নম্বরটি কপি করুন</span>
+                        <div class="mb-2 d-flex align-items-center gap-2">
+                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important;">1</span>
+                            <span class="fw-semibold" style="color: #ffffff !important;">উপরে দেওয়া নম্বরটি কপি করুন</span>
                         </div>
-                        <div class="mb-2 d-flex align-items-start gap-2">
-                            <span class="badge rounded-circle bg-white text-danger fw-bold" style="min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">2</span>
-                            <span>বিকাশ অ্যাপ ওপেন করুন অথবা *247# ডায়াল করুন</span>
+                        <div class="mb-2 d-flex align-items-center gap-2">
+                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important;">2</span>
+                            <span class="fw-semibold" style="color: #ffffff !important;">বিকাশ অ্যাপ ওপেন করুন অথবা *247# ডায়াল করুন</span>
                         </div>
 
                         <!-- bKash Send Money Illustration -->
-                        <div class="my-3 p-2 bg-white rounded text-dark text-center position-relative shadow-sm" style="max-width: 260px; margin: 0 auto; border-radius: 10px;">
-                            <div class="d-flex justify-content-between align-items-center mb-1 px-1">
-                                <span class="badge bg-danger rounded-pill px-2 py-1" style="font-size: 9px; background: #e2136e !important;">bKash</span>
-                                <small class="text-muted" style="font-size: 9px;">Send Money / সেন্ড মানি</small>
+                        <div class="my-3 p-2 text-center position-relative shadow" style="max-width: 270px; margin: 0 auto; border-radius: 12px; background: #ffffff !important; border: 1px solid #f1f5f9;">
+                            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                <span class="badge rounded-pill px-2 py-1 text-white fw-bold" style="font-size: 10px; background: #e2136e !important;">bKash</span>
+                                <small class="fw-bold" style="font-size: 10px; color: #475569 !important;">Send Money / সেন্ড মানি</small>
                             </div>
-                            <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-center gap-2" style="background: #fff5f8 !important; border-color: #fcd6e5 !important;">
-                                <div class="p-1 rounded-circle bg-white shadow-sm border" style="border-color: #e2136e !important;">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                            <div class="p-2 border rounded d-flex align-items-center justify-content-center gap-2" style="background: #fff0f5 !important; border-color: #fbcfe8 !important;">
+                                <div class="p-1.5 rounded-circle bg-white shadow-sm border d-flex align-items-center justify-content-center" style="border-color: #e2136e !important;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2.8"><path d="M12 5v14M5 12h14"/></svg>
                                 </div>
                                 <div class="text-start">
-                                    <div class="fw-bold" style="font-size: 12px; color: #e2136e;">সেন্ড মানি</div>
-                                    <div style="font-size: 9px;" class="text-muted">Send Money</div>
+                                    <div class="fw-bold" style="font-size: 13px; color: #be185d !important;">সেন্ড মানি</div>
+                                    <div class="fw-semibold" style="font-size: 10px; color: #64748b !important;">Send Money</div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="mb-3 d-flex align-items-start gap-2">
-                            <span class="badge rounded-circle bg-white text-danger fw-bold" style="min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">3</span>
-                            <span style="font-size: 11px; opacity: 0.95;">নির্ধারিত নম্বরে সঠিক পরিমাণ টাকা পাঠিয়ে সেন্ড মানি/ক্যাশ আউট এর পর অটো ভেরিফিকেশনের জন্য কিছু সময় অপেক্ষা করুন, যেকোনো সমস্যায় সাপোর্ট নিন।</span>
+                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important; flex-shrink: 0; margin-top: 2px;">3</span>
+                            <span style="font-size: 11.5px; opacity: 0.98; color: #ffffff !important;">নির্ধারিত নম্বরে সঠিক পরিমাণ টাকা পাঠিয়ে সেন্ড মানি/ক্যাশ আউট এর পর অটো ভেরিফিকেশনের জন্য কিছু সময় অপেক্ষা করুন, যেকোনো সমস্যায় সাপোর্ট নিন।</span>
                         </div>
 
                         <!-- Session Countdown Timer & Status -->
