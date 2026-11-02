@@ -124,6 +124,7 @@
     $path_invoice = 'invoice';
     $path_payment_link = 'payment-link';
     $path_admin = 'admin';
+    $path_login = 'login';
     $path_cron = 'cron';
     $path_homepageRedirect = '';
 
@@ -165,6 +166,7 @@
             $path_invoice = ($value = get_env('geneal-application-settings-invoicePath')) && $value !== '--' ? $value : 'invoice';
             $path_payment_link = ($value = get_env('geneal-application-settings-paymentLinkPath')) && $value !== '--' ? $value : 'payment-link';
             $path_admin = ($value = get_env('geneal-application-settings-adminPath')) && $value !== '--' ? $value : 'admin';
+            $path_login = ($value = get_env('geneal-application-settings-loginPath')) && $value !== '--' ? $value : 'login';
             $path_cron = ($value = get_env('geneal-application-settings-cronPath')) && $value !== '--' ? $value : 'cron';
             $path_homepageRedirect = ($value = get_env('geneal-application-settings-homepageRedirect')) && $value !== '--' ? $value : '';
 
@@ -244,7 +246,8 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
     $piprapay_favicon= 'https://piprapay.com/assets/images/favicon.png';
     $piprapay_logo_light = 'https://cdn.piprapay.com/media/logo.png';
 
-    $directory = (pp_site_url('fulldomain') == 'http://localhost') ? 'piprapay-panel/' : '';
+    $currentFolder = basename(dirname(__DIR__, 2));
+    $directory = (pp_site_url('fulldomain') == 'http://localhost') ? $currentFolder . '/' : '';
     $site_url = pp_site_url('fulldomain').'/'.$directory;
 
     if(isset($_GET['logout'])){
