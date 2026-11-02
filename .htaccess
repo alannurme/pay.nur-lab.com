@@ -1,4 +1,9 @@
 RewriteEngine On
+CGIPassAuth On
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+SetEnvIf X-API-KEY "(.*)" HTTP_X_API_KEY=$1
+SetEnvIf MHS-PIPRAPAY-API-KEY "(.*)" HTTP_MHS_PIPRAPAY_API_KEY=$1
+
 
 Options -Indexes
 

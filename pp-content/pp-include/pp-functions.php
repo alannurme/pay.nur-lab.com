@@ -14,8 +14,8 @@
     
     function pp_site_url($type = "Full") {
         // Detect protocol
-        $protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
-                    || (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)) ? "https://" : "http://";
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' 
+                    || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
 
         // Full host with subdomain
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -65,32 +65,14 @@
     function getAuthorizationHeader() {
         if (function_exists('getallheaders')) {
             $headers = getallheaders();
-            if (is_array($headers)) {
-                foreach ($headers as $key => $val) {
-                    if (strcasecmp($key, 'MHS-PIPRAPAY-API-KEY') === 0 || strcasecmp($key, 'X-API-KEY') === 0) {
-                        return trim((string)$val);
-                    }
-                    if (strcasecmp($key, 'Authorization') === 0) {
-                        $authHeader = trim((string)$val);
-                        if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-                            return trim($matches[1]);
-                        }
-                        return $authHeader;
-                    }
-                }
+            if (isset($headers['MHS-PIPRAPAY-API-KEY'])) {
+                return trim($headers['MHS-PIPRAPAY-API-KEY']);
             }
         }
     
         foreach ($_SERVER as $key => $value) {
-            if (strcasecmp($key, 'HTTP_MHS_PIPRAPAY_API_KEY') === 0 || strcasecmp($key, 'HTTP_X_API_KEY') === 0) {
-                return trim((string)$value);
-            }
-            if (strcasecmp($key, 'HTTP_AUTHORIZATION') === 0 || strcasecmp($key, 'REDIRECT_HTTP_AUTHORIZATION') === 0) {
-                $authHeader = trim((string)$value);
-                if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-                    return trim($matches[1]);
-                }
-                return $authHeader;
+            if (stripos($key, 'HTTP_MHS_PIPRAPAY_API_KEY') !== false) {
+                return trim($value);
             }
         }
     
@@ -162,11 +144,7 @@
 
     function getUserDeviceInfo() {
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
-        $ipAddress = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
-        if (strpos($ipAddress, ',') !== false) {
-            $ipParts = explode(',', $ipAddress);
-            $ipAddress = trim($ipParts[0]);
-        }
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
     
         if (preg_match('/mobile/i', $userAgent)) {
             $deviceType = "Mobile";
@@ -218,7 +196,7 @@
     function setsCookie($cookieName, $cookieValue, $days = 365) {
         $expiryTime = time() + ($days * 24 * 60 * 60);
     
-        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443;
     
         setcookie($cookieName, $cookieValue, [
             'expires' => $expiryTime,
@@ -236,14 +214,12 @@
     
     // Logout: clear all cookies and destroy session
     function logoutCookie() {
-        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
-
         // Expire all cookies
         foreach ($_COOKIE as $name => $value) {
             setcookie($name, '', [
                 'expires' => time() - 3600,
                 'path' => '/',
-                'secure' => $isSecure,
+                'secure' => true,
                 'httponly' => true,
                 'samesite' => 'Lax'
             ]);
@@ -258,19 +234,10 @@
     }
 
     function escape_string($value) {
-        if (!is_string($value)) {
-            return $value;
-        }
-        try {
-            $pdo = connectDatabase();
-            $quoted = $pdo->quote($value);
-            if ($quoted !== false && strlen($quoted) >= 2) {
-                return substr($quoted, 1, -1);
-            }
-        } catch (Exception $e) {
-            // fallback
-        }
-        return addslashes($value);
+        /*$conn = connectDatabase();
+        $value = mysqli_real_escape_string($conn, $value);*/
+
+        return $value;
     }   
 
     function getData($tableName, $coloum_name, $type = "* FROM", $params = []) {
@@ -521,15 +488,10 @@
 
     function money_round($amount, int $decimals = 2): string {
         $amount = money_sanitize($amount);
-        if ($amount === '' || $amount === '0') {
-            return number_format(0, $decimals, '.', '');
-        }
-        $isNegative = str_starts_with($amount, '-');
-        $unsigned = ltrim($amount, '-');
-        $add = '0.' . str_repeat('0', $decimals) . '5';
-        $res = bcadd($unsigned, $add, $decimals + 1);
-        $rounded = bcdiv($res, '1', $decimals);
-        return ($isNegative && bccomp($rounded, '0', $decimals) !== 0 ? '-' : '') . $rounded;
+        $factor = bcpow('10', (string)($decimals + 1));
+        $tmp = bcmul($amount, $factor, 0);
+        $tmp = bcdiv($tmp, '10', 0); 
+        return bcdiv($tmp, bcpow('10', (string)$decimals), $decimals);
     }
 
     function pp_get_gateway_options($gateway_id = '', $brand_id = ''){
@@ -647,19 +609,9 @@
     }
 
     function convertUTCtoUserTZ($utc_time, $user_tz = 'UTC', $format = 'Y-m-d H:i:s') {
-        if (empty($utc_time) || $utc_time === '--') {
-            return '';
-        }
-        try {
-            if (empty($user_tz) || $user_tz === '--') {
-                $user_tz = 'Asia/Dhaka';
-            }
-            $dt = new DateTime((string)$utc_time, new DateTimeZone('UTC'));
-            $dt->setTimezone(new DateTimeZone((string)$user_tz));
-            return $dt->format($format);
-        } catch (Throwable $e) {
-            return (string)$utc_time;
-        }
+        $dt = new DateTime($utc_time, new DateTimeZone('UTC'));
+        $dt->setTimezone(new DateTimeZone($user_tz));
+        return $dt->format($format);
     }
 
     function isExpired($expires_at){
@@ -813,7 +765,7 @@
     }
 
     function senderWhitelist(?string $sender = null, ?string $providerKey = null, string $mode = 'provider', ?string $providerName = null) {
-        $defaultProviders = [
+        $providers = [
             'bkash' => [
                 'name'     => 'bKash',
                 'currency' => 'BDT',
@@ -848,7 +800,7 @@
                 'name'     => 'Cellfin',
                 'currency' => 'BDT',
                 'balance_verify' => 'false',
-                'senders'  => ['ibbl', 'cellfin', 'ibbl .'],
+                'senders'  => ['ibbl .'],
             ],
             'okwallet' => [
                 'name'     => 'Ok Wallet',
@@ -880,19 +832,19 @@
                 'balance_verify' => 'true',
                 'senders'  => ['09638-900800'],
             ],
+            'tallypay' => [
+                'name'     => 'TallyPay',
+                'currency' => 'BDT',
+                'balance_verify' => 'true',
+                'senders'  => ['tallypay'],
+            ],
+            'dgepay' => [
+                'name'     => 'DGePay',
+                'currency' => 'BDT',
+                'balance_verify' => 'true',
+                'senders'  => ['09678-000005'],
+            ],
         ];
-
-        $providers = [];
-        foreach ($defaultProviders as $key => $prov) {
-            $customSendersStr = get_env('mfs_senders_' . $key);
-            if (!empty($customSendersStr) && $customSendersStr !== '--') {
-                $customArr = array_values(array_filter(array_map('trim', explode(',', $customSendersStr))));
-                if (!empty($customArr)) {
-                    $prov['senders'] = $customArr;
-                }
-            }
-            $providers[$key] = $prov;
-        }
 
         if ($mode === 'senders') {
             $allSenders = [];
@@ -954,7 +906,7 @@
                 [
                     'type'     => 'Personal',
                     'priority' => 100,
-                    'pattern'  => '/You have received Tk ([\d,.]+) from (\d+)\.(?:\s*Ref[:\-]?\s*(\S+))? Fee Tk ([\d,.]+)\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/You have received Tk ([\d,.]+) from (\d+)\.\s*(?:Ref[:\-]?\s*(\S+))?\s*Fee Tk ([\d,.]+)\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'ref', 'fee', 'balance', 'trxid', 'datetime']
                 ],
                 [
@@ -966,7 +918,7 @@
                 [
                     'type'     => 'Merchant',
                     'priority' => 80,
-                    'pattern'  => '/You have received payment Tk ([\d,.]+) from (\d+)\.(?:\s*Ref[:\-]?\s*(\S+))? Fee Tk ([\d,.]+)\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/You have received payment Tk ([\d,.]+) from ([\d*X]+)\.\s*(?:Ref[:\-]?\s*(\S+))?\s*Fee Tk ([\d,.]+)\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'ref', 'fee', 'balance', 'trxid', 'datetime']
                 ],
 
@@ -994,11 +946,10 @@
                     'map'      => ['amount', 'sender', 'trxid', 'balance', 'datetime']
                 ],
 
-                /*
                 [
                     'type'     => 'Merchant',
                     'priority' => 70,
-                    'pattern'  => '/received a payment of Tk ([\d,.]+) from (\d+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/received a payment of Tk ([\d,.]+) from ([\d*X]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'trxid', 'datetime']
                 ],
 
@@ -1008,7 +959,7 @@
                     'priority' => 60,
                     'pattern'  => '/Cash In Tk ([\d,.]+) from (\d+) successful\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+)/i',
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
-                ],*/
+                ],
             ],
             'rocket' => [
                 // 🔹 PERSONAL (Most specific first)
@@ -1019,11 +970,10 @@
                     'map'      => ['amount', 'sender', 'fee', 'balance', 'trxid', 'datetime']
                 ],
 
-                /*
                 [
                     'type'     => 'Merchant',
                     'priority' => 70,
-                    'pattern'  => '/received a payment of Tk ([\d,.]+) from (\d+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/received a payment of Tk ([\d,.]+) from ([\d*X]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'trxid', 'datetime']
                 ],
 
@@ -1033,7 +983,7 @@
                     'priority' => 60,
                     'pattern'  => '/Cash In Tk ([\d,.]+) from (\d+) successful\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+)/i',
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
-                ],*/
+                ],
             ],
             'upay' => [
                 // 🔹 PERSONAL (Most specific first)
@@ -1044,11 +994,10 @@
                     'map'      => ['amount', 'sender', 'ref', 'balance', 'trxid', 'datetime']
                 ],
 
-                /*
                 [
                     'type'     => 'Merchant',
                     'priority' => 70,
-                    'pattern'  => '/received a payment of Tk ([\d,.]+) from (\d+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/received a payment of Tk ([\d,.]+) from ([\d*X]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'trxid', 'datetime']
                 ],
 
@@ -1058,7 +1007,7 @@
                     'priority' => 60,
                     'pattern'  => '/Cash In Tk ([\d,.]+) from (\d+) successful\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+)/i',
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
-                ],*/
+                ],
             ],
             'tap' => [
                 // 🔹 PERSONAL (Most specific first)
@@ -1069,11 +1018,10 @@
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
                 ],
 
-                /*
                 [
                     'type'     => 'Merchant',
                     'priority' => 70,
-                    'pattern'  => '/received a payment of Tk ([\d,.]+) from (\d+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/received a payment of Tk ([\d,.]+) from ([\d*X]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'trxid', 'datetime']
                 ],
 
@@ -1083,7 +1031,7 @@
                     'priority' => 60,
                     'pattern'  => '/Cash In Tk ([\d,.]+) from (\d+) successful\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+)/i',
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
-                ],*/
+                ],
             ],
             'cellfin' => [
                 // 🔹 PERSONAL (Most specific first)
@@ -1094,11 +1042,10 @@
                     'map'      => ['amount', 'sender', 'receiver', 'trxid']
                 ],
 
-                /*
                 [
                     'type'     => 'Merchant',
                     'priority' => 70,
-                    'pattern'  => '/received a payment of Tk ([\d,.]+) from (\d+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/received a payment of Tk ([\d,.]+) from ([\d*X]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'trxid', 'datetime']
                 ],
 
@@ -1108,7 +1055,7 @@
                     'priority' => 60,
                     'pattern'  => '/Cash In Tk ([\d,.]+) from (\d+) successful\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+)/i',
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
-                ],*/
+                ],
             ],
             'okwallet' => [
                 // 🔹 PERSONAL (Most specific first)
@@ -1119,11 +1066,10 @@
                     'map'      => ['amount', 'sender', 'ref', 'balance', 'trxid']
                 ],
 
-                /*
                 [
                     'type'     => 'Merchant',
                     'priority' => 70,
-                    'pattern'  => '/received a payment of Tk ([\d,.]+) from (\d+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/received a payment of Tk ([\d,.]+) from ([\d*X]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'trxid', 'datetime']
                 ],
 
@@ -1133,7 +1079,7 @@
                     'priority' => 60,
                     'pattern'  => '/Cash In Tk ([\d,.]+) from (\d+) successful\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+)/i',
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
-                ],*/
+                ],
             ],
             'mcash' => [
                 // 🔹 PERSONAL (Most specific first)
@@ -1144,11 +1090,10 @@
                     'map'      => ['amount', 'sender', 'ref', 'balance', 'trxid']
                 ],
 
-                /*
                 [
                     'type'     => 'Merchant',
                     'priority' => 70,
-                    'pattern'  => '/received a payment of Tk ([\d,.]+) from (\d+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/received a payment of Tk ([\d,.]+) from ([\d*X]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'trxid', 'datetime']
                 ],
 
@@ -1158,7 +1103,7 @@
                     'priority' => 60,
                     'pattern'  => '/Cash In Tk ([\d,.]+) from (\d+) successful\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+)/i',
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
-                ],*/
+                ],
             ],
             'pathaopay' => [
                 // 🔹 PERSONAL (Most specific first)
@@ -1169,11 +1114,10 @@
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
                 ],
 
-                /*
                 [
                     'type'     => 'Merchant',
                     'priority' => 70,
-                    'pattern'  => '/received a payment of Tk ([\d,.]+) from (\d+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
+                    'pattern'  => '/received a payment of Tk ([\d,.]+) from ([\d*X]+)\. TrxID ([A-Z0-9]+) at ([\d\/:\s]+)/i',
                     'map'      => ['amount', 'sender', 'trxid', 'datetime']
                 ],
 
@@ -1183,10 +1127,29 @@
                     'priority' => 60,
                     'pattern'  => '/Cash In Tk ([\d,.]+) from (\d+) successful\. Balance Tk ([\d,.]+)\. TrxID ([A-Z0-9]+)/i',
                     'map'      => ['amount', 'sender', 'balance', 'trxid']
-                ],*/
+                ],
             ],
 
 
+            'tallypay' => [
+                // 🔹 MERCHANT (TallyPay is a merchant app)
+                [
+                    'type'     => 'Merchant',
+                    'priority' => 100,
+                    'pattern'  => '/Tk ([\d,.]+) received from ([\d*X]+) via TallyPay QR payment\.\s*A\/c balance: Tk ([\d,.]+)\s*Txn ID: ([A-Z0-9]+)\s*(\d{1,2}\s+\w+\s+\d{4}\s+\d{1,2}:\d{2}\s+[AP]M)/i',
+                    'map'      => ['amount', 'sender', 'balance', 'trxid', 'datetime']
+                ],
+            ],
+
+            'dgepay' => [
+                // 🔹 MERCHANT (DGePay)
+                [
+                    'type'     => 'Merchant',
+                    'priority' => 100,
+                    'pattern'  => '/(?:Tk|৳)\s*([\d,.]+)\s*(?:পেয়েছি|received).*?(?:ব্যাংক\s*অ্যাকাউন্ট|A\/c|Account)[:\s]*([\d*X]+).*?Txn\s*ID[:\s]*([A-Z0-9]+).*?Reference[:\s]*([A-Z0-9]*)/i',
+                    'map'      => ['amount', 'sender', 'trxid', 'ref']
+                ],
+            ],
 
 
         ];
@@ -1403,8 +1366,7 @@
                     'manage_general' => true,
                     'manage_cron' => true,
                     'manage_update'   => true,
-                    'manage_import'   => true,
-                    'manage_notification' => true
+                    'manage_import'   => true
                 ],
             ],
             'pages' => [
@@ -1601,79 +1563,6 @@
             }
         }
     }
-
-    function uploadSlipFile($file, $max_file_size = 10485760) {
-        if (!is_dir(__DIR__.'/../../pp-media/storage')) {
-            if (!mkdir(__DIR__.'/../../pp-media/storage', 0755, true)) {
-                return json_encode(['status' => false, 'message' => 'Failed to create storage folder!']);
-            }
-        }
-        $upload_directory = __DIR__ . '/../../pp-media/storage/';
-
-        if (!isset($file) || !is_array($file) || !isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
-            return json_encode(['status' => false, 'message' => 'No file uploaded or upload failed.']);
-        }
-
-        if (($file['size'] ?? 0) > $max_file_size) {
-            return json_encode(['status' => false, 'message' => 'File size exceeds maximum allowed limit (10MB).']);
-        }
-
-        $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'];
-        $file_info          = pathinfo($file['name'] ?? '');
-        $file_extension     = strtolower($file_info['extension'] ?? '');
-
-        if (!in_array($file_extension, $allowed_extensions)) {
-            return json_encode(['status' => false, 'message' => 'Only PDF, JPG, PNG, GIF, and WEBP files are allowed.']);
-        }
-
-        $random_filename = generateRandomFilename($file_extension);
-        $full_path       = $upload_directory . $random_filename;
-
-        // If PDF file, store directly without image processing
-        if ($file_extension === 'pdf') {
-            if (move_uploaded_file($file['tmp_name'], $full_path)) {
-                return json_encode(['status' => true, 'file' => $random_filename]);
-            } else {
-                return json_encode(['status' => false, 'message' => 'Failed to upload PDF file.']);
-            }
-        }
-
-        // Image processing with Imagick if available
-        try {
-            if (!extension_loaded('imagick')) {
-                throw new Exception('Imagick extension not installed.');
-            }
-
-            $img = new Imagick($file['tmp_name']);
-            $hasAlpha = $img->getImageAlphaChannel();
-
-            if ($hasAlpha && Imagick::queryFormats('WEBP')) {
-                $img->setImageFormat('webp');
-                $img->setOption('webp:lossless', 'true');
-                $img->setImageCompressionQuality(85);
-                $random_filename = generateRandomFilename('webp');
-            } elseif (!$hasAlpha && Imagick::queryFormats('JPEG')) {
-                $img->setImageFormat('jpeg');
-                $img->setImageCompression(Imagick::COMPRESSION_JPEG);
-                $img->setImageCompressionQuality(80);
-                $random_filename = generateRandomFilename('jpg');
-            }
-
-            $full_path = $upload_directory . $random_filename;
-            $img->stripImage();
-            $img->writeImage($full_path);
-            $img->clear();
-            $img->destroy();
-
-            return json_encode(['status' => true, 'file' => $random_filename]);
-        } catch (Exception $e) {
-            if (move_uploaded_file($file['tmp_name'], $full_path)) {
-                return json_encode(['status' => true, 'file' => $random_filename]);
-            } else {
-                return json_encode(['status' => false, 'message' => 'File upload failed.']);
-            }
-        }
-    }
     
     function deleteImage($file) {
         // Define the local image directory path
@@ -1728,40 +1617,17 @@
 
     function zipFolder($source, $zipFile) {
         $zip = new ZipArchive;
-        if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            return false;
-        }
-
-        $source = str_replace('\\', '/', realpath($source));
-
+        $zip->open($zipFile, ZipArchive::CREATE);
         $files = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($source, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
+            new RecursiveDirectoryIterator($source)
         );
 
         foreach ($files as $file) {
-            $filePath = str_replace('\\', '/', $file->getRealPath());
-            $relativePath = substr($filePath, strlen($source) + 1);
-
-            // Skip heavy, backup, or runtime storage directories to prevent recursion & timeouts
-            if (
-                str_starts_with($relativePath, '.git') ||
-                str_starts_with($relativePath, 'pp-media/storage/backup') ||
-                str_starts_with($relativePath, 'pp-media/storage/temp') ||
-                str_starts_with($relativePath, 'pp-media/storage/updates') ||
-                $relativePath === '.maintenance'
-            ) {
-                continue;
-            }
-
-            if ($file->isDir()) {
-                $zip->addEmptyDir($relativePath);
-            } elseif ($file->isFile()) {
-                $zip->addFile($filePath, $relativePath);
+            if (!$file->isDir()) {
+                $zip->addFile($file, substr($file, strlen($source) + 1));
             }
         }
         $zip->close();
-        return true;
     }
 
     function runSql($file) {
@@ -1776,6 +1642,7 @@
         try {
             $pdo->beginTransaction();
 
+            // Split SQL safely
             $queries = array_filter(array_map('trim', explode(";\n", $sql)));
 
             foreach ($queries as $query) {
@@ -1795,101 +1662,74 @@
     }
 
     function backupDatabasePDO($backupPath) {
-        try {
-            $pdo = connectDatabase();
-            $pdo->exec("SET NAMES utf8mb4");
+        $pdo = connectDatabase();
+        $pdo->exec("SET NAMES utf8mb4");
 
-            $fh = fopen($backupPath, 'w');
-            if (!$fh) return false;
+        $fh = fopen($backupPath, 'w');
 
-            fwrite($fh, "SET FOREIGN_KEY_CHECKS=0;\n\n");
+        fwrite($fh, "SET FOREIGN_KEY_CHECKS=0;\n\n");
 
-            $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+        $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
 
-            foreach ($tables as $table) {
-                $createRes = $pdo->query("SHOW CREATE TABLE `$table`")->fetch(PDO::FETCH_NUM);
-                $create = $createRes[1] ?? '';
-                fwrite($fh, "DROP TABLE IF EXISTS `$table`;\n$create;\n\n");
+        foreach ($tables as $table) {
 
-                $stmt = $pdo->query("SELECT * FROM `$table`", PDO::FETCH_ASSOC);
-                foreach ($stmt as $row) {
-                    $vals = [];
-                    foreach ($row as $val) {
-                        $vals[] = ($val === null) ? "NULL" : $pdo->quote($val);
-                    }
-                    fwrite($fh, "INSERT INTO `$table` VALUES (" . implode(',', $vals) . ");\n");
+            $create = $pdo->query("SHOW CREATE TABLE `$table`")->fetch(PDO::FETCH_NUM)[1];
+            fwrite($fh, "DROP TABLE IF EXISTS `$table`;\n$create;\n\n");
+
+            $stmt = $pdo->query("SELECT * FROM `$table`", PDO::FETCH_ASSOC);
+            foreach ($stmt as $row) {
+                $vals = [];
+                foreach ($row as $val) {
+                    $vals[] = ($val === null) ? "NULL" : $pdo->quote($val);
                 }
-
-                fwrite($fh, "\n");
+                fwrite($fh, "INSERT INTO `$table` VALUES (" . implode(',', $vals) . ");\n");
             }
 
-            fwrite($fh, "SET FOREIGN_KEY_CHECKS=1;\n");
-            fclose($fh);
-            return true;
-        } catch (Throwable $e) {
-            error_log('Database backup error: ' . $e->getMessage());
-            return false;
+            fwrite($fh, "\n");
         }
+
+        fwrite($fh, "SET FOREIGN_KEY_CHECKS=1;\n");
+        fclose($fh);
     }
 
     function extractUpdate($zipFile, $destination) {
-        if (!file_exists($zipFile)) {
-            throw new Exception("Update ZIP file not found.");
-        }
-
         $zip = new ZipArchive;
         if ($zip->open($zipFile) !== true) {
-            throw new Exception("Cannot open update ZIP file.");
+            throw new Exception("Cannot open ZIP file");
         }
 
-        // Detect top-level folder in zip (e.g., PipraPay-main/)
+        // Detect top-level folder in zip
         $topFolder = '';
         if ($zip->numFiles > 0) {
             $firstFile = $zip->getNameIndex(0);
             $parts = explode('/', $firstFile);
-            if (count($parts) > 1 && $parts[0] !== '') {
-                $topFolder = $parts[0] . '/';
-            }
+            if (count($parts) > 1) $topFolder = $parts[0] . '/';
         }
 
-        @mkdir($destination, 0755, true);
-
+        // Extract each file manually to remove top-level folder
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $entry = $zip->getNameIndex($i);
 
-            // Remove top folder prefix if present
-            if ($topFolder !== '' && str_starts_with($entry, $topFolder)) {
+            // Remove top folder prefix
+            if ($topFolder && str_starts_with($entry, $topFolder)) {
                 $entryNew = substr($entry, strlen($topFolder));
             } else {
                 $entryNew = $entry;
             }
 
-            if ($entryNew === '' || $entryNew === false) continue;
+            if ($entryNew === '') continue; // skip folder itself
 
-            // Protect sensitive files and directories
-            if (
-                $entryNew === 'pp-config.php' ||
-                str_starts_with($entryNew, 'pp-media/storage/') ||
-                str_starts_with($entryNew, '.git')
-            ) {
-                continue;
-            }
+            $targetPath = $destination . '/' . $entryNew;
 
-            $targetPath = rtrim($destination, '/\\') . '/' . $entryNew;
-
-            if (substr($entry, -1) === '/') {
+            if (substr($entry, -1) === '/') { // folder
                 @mkdir($targetPath, 0755, true);
-            } else {
+            } else { // file
                 @mkdir(dirname($targetPath), 0755, true);
-                $fileData = $zip->getFromIndex($i);
-                if ($fileData !== false) {
-                    file_put_contents($targetPath, $fileData);
-                }
+                copy("zip://$zipFile#$entry", $targetPath);
             }
         }
 
         $zip->close();
-        return true;
     }
 
     function addQueryParams($url, $params = []) {
@@ -2000,7 +1840,7 @@
         }
     }
 
-    function pp_set_transaction_status($transactionid, $status = '', $gateway_id = '', $trxid = '', $source_info = []){
+    function pp_set_transaction_status($transactionid, $status = '', $gateway_id = '', $trxid = '', $source_info = [], $sender_info = []){
         global $db_prefix;
 
         $params = [ ':ref' => $transactionid, ':status' => 'initiated' ];
@@ -2011,20 +1851,20 @@
             if($status == "canceled"){
                 $columns = ['status', 'updated_date'];
                 $values = ['canceled', getCurrentDatetime('Y-m-d H:i:s')];
-                $condition = 'id ="'.$response_transaciton['response'][0]['id'].'"'; 
+                $condition = 'id ="'.$response_transaciton['response'][0]['id'].'"';
 
                 updateData($db_prefix.'transaction', $columns, $values, $condition);
 
-                pp_dispatch_notification('payment.failed', [
-                    'amount'        => money_round($response_transaciton['response'][0]['amount'] ?? 0),
-                    'currency'      => $response_transaciton['response'][0]['currency'] ?? 'BDT',
-                    'gateway'       => $response_transaciton['response'][0]['gateway_id'] ?? 'Payment',
-                    'trx_id'        => $response_transaciton['response'][0]['ref'] ?? '',
-                    'invoice_id'    => $response_transaciton['response'][0]['ref'] ?? '',
-                    'customer_name' => 'Customer',
-                    'reason'        => 'Transaction was marked as cancelled.'
-                ]);
-                                                                
+                return true;
+            }
+
+            if($status == "expired" || $status == "pending"){
+                $columns = ['status', 'updated_date'];
+                $values = [$status, getCurrentDatetime('Y-m-d H:i:s')];
+                $condition = 'id ="'.$response_transaciton['response'][0]['id'].'"';
+
+                updateData($db_prefix.'transaction', $columns, $values, $condition);
+
                 return true;
             }
 
@@ -2102,6 +1942,13 @@
 
                 $columns = ['processing_fee', 'discount_amount', 'local_net_amount', 'local_currency', 'gateway_id', 'status', 'trx_id', 'source_info', 'updated_date'];
                 $values = [$totalProcessingFee, $totalDiscount, $convertedAmount, $response_gateway['response'][0]['currency'], $gateway_id, 'completed', $trxid, $final_source_info, getCurrentDatetime('Y-m-d H:i:s')];
+
+                // ponytail: fold sender columns into the same write so callers don't need a second UPDATE
+                if (!empty($sender_info)) {
+                    $columns[] = 'sender';      $values[] = $sender_info['sender'] ?? '';
+                    $columns[] = 'sender_key';  $values[] = $sender_info['sender_key'] ?? '';
+                    $columns[] = 'sender_type'; $values[] = $sender_info['sender_type'] ?? '';
+                }
                 $condition = 'id ="'.$response_transaciton['response'][0]['id'].'"'; 
 
                 updateData($db_prefix.'transaction', $columns, $values, $condition);
@@ -2196,18 +2043,6 @@
                     do_action('transactions.updated', $all_transactions);
                 }
 
-                pp_dispatch_notification('payment.success', [
-                    'amount'         => money_round($net),
-                    'currency'       => $response_transaction['response'][0]['currency'] ?? 'BDT',
-                    'gateway'        => $gateway,
-                    'trx_id'         => $response_transaction['response'][0]['trx_id'] ?? '',
-                    'invoice_id'     => $response_transaction['response'][0]['ref'] ?? '',
-                    'customer_name'  => $customer_info['name'] ?? 'Customer',
-                    'customer_email' => $customer_info['email'] ?? '',
-                    'customer_phone' => $customer_info['mobile'] ?? '',
-                    'brand_name'     => $response_brand['response'][0]['brand_name'] ?? ''
-                ]);
-
                 return true;
             }
 
@@ -2217,13 +2052,15 @@
     }
 
     function pp_checkout_address($paymentid = ''){
-        global $path_payment, $paymentID;
+        global $path_payment, $paymentID124123412;
 
-        if ($paymentid === '' || $paymentid === null) {
-            $paymentid = $paymentID ?? '';
+        if($paymentid !== ""){
+            $paymentID124123412 = $paymentid ?? '';
+        }else{
+           $paymentID124123412 = $paymentID124123412 ?? '';
         }
 
-        return pp_site_address().$path_payment.'/'.$paymentid;
+        return pp_site_address().$path_payment.'/'.$paymentID124123412;
     }
 
     function pp_hexToRgba($hex, $opacity = 1) {
@@ -2247,7 +2084,6 @@
             echo '
                 <link rel="stylesheet" href="'.$site_url.'assets/css/tabler.min.css?v=1.7" />
                 <link rel="stylesheet" href="'.$site_url.'assets/css/choices.min.css">
-                <link rel="stylesheet" href="'.$site_url.'assets/css/ai-theme.css?v=3.0" />
 
                 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-flags.min.css" />
                 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler-payments.min.css" />
@@ -2269,478 +2105,107 @@
         }
     }
 
-    if (!class_exists('FPDF')) {
-        if (file_exists(__DIR__ . '/../../pp-media/sdk/fpdf/fpdf.php')) {
-            require_once __DIR__ . '/../../pp-media/sdk/fpdf/fpdf.php';
-        }
-    }
-
-    if (!class_exists('PipraPayReceiptPDF') && class_exists('FPDF')) {
-        class PipraPayReceiptPDF extends FPDF
-        {
-            public function RoundedRect($x, $y, $w, $h, $r, $style = '', $corners = '1234')
-            {
-                $k = $this->k;
-                $hp = $this->h;
-                if($style=='F')
-                    $op='f';
-                elseif($style=='FD' || $style=='DF')
-                    $op='B';
-                else
-                    $op='S';
-                $MyArc = 4/3 * (sqrt(2) - 1);
-                $this->_out(sprintf('%.2F %.2F m',($x+$r)*$k,($hp-$y)*$k ));
-
-                $xc = $x+$w-$r;
-                $yc = $y+$r;
-                $this->_out(sprintf('%.2F %.2F l', $xc*$k,($hp-$y)*$k ));
-                if (strpos($corners, '2')===false)
-                    $this->_out(sprintf('%.2F %.2F l', ($x+$w)*$k,($hp-$y)*$k ));
-                else
-                    $this->_Arc($xc + $r*$MyArc, $yc - $r, $xc + $r, $yc - $r*$MyArc, $xc + $r, $yc);
-
-                $xc = $x+$w-$r;
-                $yc = $y+$h-$r;
-                $this->_out(sprintf('%.2F %.2F l',($x+$w)*$k,($hp-$yc)*$k));
-                if (strpos($corners, '3')===false)
-                    $this->_out(sprintf('%.2F %.2F l',($x+$w)*$k,($hp-($y+$h))*$k));
-                else
-                    $this->_Arc($xc + $r, $yc + $r*$MyArc, $xc + $r*$MyArc, $yc + $r, $xc, $yc + $r);
-
-                $xc = $x+$r;
-                $yc = $y+$h-$r;
-                $this->_out(sprintf('%.2F %.2F l',$xc*$k,($hp-($y+$h))*$k));
-                if (strpos($corners, '4')===false)
-                    $this->_out(sprintf('%.2F %.2F l',($x)*$k,($hp-($y+$h))*$k));
-                else
-                    $this->_Arc($xc - $r*$MyArc, $yc + $r, $xc - $r, $yc + $r*$MyArc, $xc - $r, $yc);
-
-                $xc = $x+$r;
-                $yc = $y+$r;
-                $this->_out(sprintf('%.2F %.2F l',($x)*$k,($hp-$yc)*$k ));
-                if (strpos($corners, '1')===false) {
-                    $this->_out(sprintf('%.2F %.2F l',($x)*$k,($hp-$y)*$k ));
-                    $this->_out(sprintf('%.2F %.2F l',($x+$r)*$k,($hp-$y)*$k ));
-                } else
-                    $this->_Arc($xc - $r, $yc - $r*$MyArc, $xc - $r*$MyArc, $yc - $r, $xc, $yc - $r);
-                $this->_out($op);
-            }
-
-            public function _Arc($x1, $y1, $x2, $y2, $x3, $y3)
-            {
-                $h = $this->h;
-                $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c ', $x1*$this->k, ($h-$y1)*$this->k,
-                    $x2*$this->k, ($h-$y2)*$this->k, $x3*$this->k, ($h-$y3)*$this->k));
-            }
-
-            public static function cleanStr($str)
-            {
-                $str = (string)($str ?? '');
-                if (function_exists('iconv')) {
-                    $converted = @iconv('UTF-8', 'windows-1252//TRANSLIT', $str);
-                    if ($converted !== false) {
-                        return $converted;
-                    }
-                }
-                return utf8_decode($str);
-            }
-        }
-    }
-
     function pp_downloadReceiptPDF($data = []){
 
-        if (!$data || empty($data['transaction'])) {
+        if (!$data) {
             die('Invalid transaction');
         }
 
         $tx = $data['transaction'];
-        if (($tx['status'] ?? '') !== 'completed') {
-            die('Receipt is only available for completed transactions.');
-        }
-
         $brand = $data['brand'];
 
-        $amountPaid = money_add(money_sub($tx['amount'] ?? 0, $tx['discount_amount'] ?? 0), $tx['processing_fee'] ?? 0);
+        $amountPaid = money_add(money_sub($tx['amount'], $tx['discount_amount']), $tx['processing_fee']);
 
-        $pdf = new PipraPayReceiptPDF('P', 'mm', 'A4');
-        $pdf->SetMargins(15, 12, 15);
+        $pdf = new FPDF('P', 'mm', 'A4');
         $pdf->AddPage();
-        $pdf->SetAutoPageBreak(false);
-
-        // Brand colors
-        $primaryHex = !empty($data['options']['primary_color']) && $data['options']['primary_color'] !== '--' ? $data['options']['primary_color'] : '#4f46e5';
-        $cleanHex = ltrim($primaryHex, '#');
-        if (strlen($cleanHex) == 3) {
-            $pR = hexdec($cleanHex[0].$cleanHex[0]);
-            $pG = hexdec($cleanHex[1].$cleanHex[1]);
-            $pB = hexdec($cleanHex[2].$cleanHex[2]);
-        } elseif (strlen($cleanHex) == 6) {
-            $pR = hexdec(substr($cleanHex, 0, 2));
-            $pG = hexdec(substr($cleanHex, 2, 2));
-            $pB = hexdec(substr($cleanHex, 4, 2));
-        } else {
-            $pR = 79; $pG = 70; $pB = 229;
-        }
-
-        // 1. Top Decorative Brand Accent Bar
-        $pdf->SetFillColor($pR, $pG, $pB);
-        $pdf->Rect(15, 12, 180, 2.5, 'F');
-
-        // 2. Header Section
-        $yHeader = 18;
-        $logoRendered = false;
+        $pdf->SetAutoPageBreak(true, 15);
 
         if (!empty($brand['logo'])) {
-            $logoPath = $brand['logo'];
-            if (preg_match('/^https?:\/\//i', $logoPath)) {
-                if (function_exists('curl_init')) {
-                    $tmp = tempnam(sys_get_temp_dir(), 'logo') . '.img';
-                    $ch = curl_init($logoPath);
-                    curl_setopt_array($ch, [
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_BINARYTRANSFER => true,
-                        CURLOPT_TIMEOUT        => 10,
-                        CURLOPT_SSL_VERIFYPEER => false,
-                        CURLOPT_SSL_VERIFYHOST => false,
-                        CURLOPT_FOLLOWLOCATION => true,
-                        CURLOPT_USERAGENT      => 'Mozilla/5.0',
-                    ]);
-                    $imgData = curl_exec($ch);
-                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    curl_close($ch);
-
-                    if ($imgData !== false && $httpCode >= 200 && $httpCode < 300) {
-                        file_put_contents($tmp, $imgData);
-                        $logoPath = $tmp;
-                    }
-                }
-            }
-
-            try {
-                if (file_exists($logoPath)) {
-                    $pdf->Image($logoPath, 15, $yHeader, 0, 13);
-                    $logoRendered = true;
-                }
-            } catch (Exception $e) {}
-
-            if (!empty($tmp) && file_exists($tmp)) {
-                @unlink($tmp);
-            }
+            $pdf->Image($brand['logo'], 10, 10, 35);
         }
 
-        if (!$logoRendered) {
-            $pdf->SetFont('Arial', 'B', 15);
-            $pdf->SetTextColor(15, 23, 42);
-            $pdf->SetXY(15, $yHeader);
-            $pdf->Cell(95, 7, PipraPayReceiptPDF::cleanStr($brand['name'] ?? 'Merchant'), 0, 1);
-        }
+        $pdf->SetFont('Arial', 'B', 14);
+        $pdf->SetXY(50, 12);
+        $pdf->Cell(0, 8, $brand['name'], 0, 1);
 
-        $brandAddress = trim(($brand['city_town'] ?? '') . (!empty($brand['city_town']) && !empty($brand['country']) ? ', ' : '') . ($brand['country'] ?? ''));
-        if (!empty($brandAddress) && $brandAddress !== ',') {
-            $pdf->SetFont('Arial', '', 8.5);
-            $pdf->SetTextColor(100, 116, 139);
-            $pdf->SetXY(15, $logoRendered ? $yHeader + 14 : $yHeader + 7);
-            $pdf->Cell(95, 4.5, PipraPayReceiptPDF::cleanStr($brandAddress), 0, 0);
-        }
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->SetX(50);
+        $pdf->Cell(0, 6, $brand['address']['city'].', '.$brand['address']['country'], 0, 1);
 
-        // Header Right: RECEIPT Title & Details
-        $pdf->SetFont('Arial', 'B', 15);
-        $pdf->SetTextColor(15, 23, 42);
-        $pdf->SetXY(110, $yHeader);
-        $pdf->Cell(85, 7, 'PAYMENT RECEIPT', 0, 1, 'R');
+        $pdf->Ln(10);
 
-        $pdf->SetFont('Arial', 'B', 8.5);
-        $pdf->SetTextColor(71, 85, 105);
-        $pdf->SetXY(110, $yHeader + 7);
-        $pdf->Cell(85, 4.5, PipraPayReceiptPDF::cleanStr('Receipt #: ' . $tx['ref']), 0, 1, 'R');
+        $pdf->SetFont('Arial', 'B', 16);
+        $pdf->Cell(0, 10, 'Payment Receipt', 0, 1, 'C');
 
-        $createdDate = convertUTCtoUserTZ($tx['created_date'], (empty($brand['timezone']) || $brand['timezone'] === '--') ? 'Asia/Dhaka' : $brand['timezone'], "M d, Y h:i A");
-        $pdf->SetFont('Arial', '', 8.5);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->SetXY(110, $yHeader + 11.5);
-        $pdf->Cell(85, 4.5, PipraPayReceiptPDF::cleanStr('Date: ' . $createdDate), 0, 1, 'R');
+        $status = strtoupper($tx['status']);
 
-        // Divider
-        $pdf->SetDrawColor(226, 232, 240);
-        $pdf->SetLineWidth(0.3);
-        $pdf->Line(15, 43, 195, 43);
-
-        // 3. Status & Hero Amount Box
-        $status = strtoupper($tx['status'] ?? 'INITIATED');
-        $statusConfig = [
-            'COMPLETED' => [
-                'bg'     => [220, 252, 231],
-                'text'   => [22, 101, 52],
-                'border' => [187, 247, 208],
-                'label'  => 'COMPLETED'
-            ],
-            'PENDING' => [
-                'bg'     => [254, 243, 199],
-                'text'   => [146, 64, 14],
-                'border' => [253, 230, 138],
-                'label'  => 'PENDING'
-            ],
-            'REFUNDED' => [
-                'bg'     => [224, 242, 254],
-                'text'   => [7, 89, 133],
-                'border' => [186, 230, 253],
-                'label'  => 'REFUNDED'
-            ],
-            'CANCELED' => [
-                'bg'     => [254, 226, 226],
-                'text'   => [153, 27, 27],
-                'border' => [254, 202, 202],
-                'label'  => 'CANCELED'
-            ],
-        ];
-        $stCfg = $statusConfig[$status] ?? [
-            'bg'     => [241, 245, 249],
-            'text'   => [71, 85, 105],
-            'border' => [203, 213, 225],
-            'label'  => $status
+        $statusColors = [
+            'COMPLETED' => [46,204,113],
+            'PENDING'   => [241,196,15],
+            'REFUNDED'  => [52,152,219],
+            'CANCELED'  => [231,76,60],
         ];
 
-        // Hero Card Background
-        $pdf->SetFillColor(248, 250, 252);
-        $pdf->SetDrawColor(226, 232, 240);
-        $pdf->RoundedRect(15, 47, 180, 26, 3, 'DF');
+        $color = $statusColors[$status] ?? [120,120,120];
 
-        // Hero Card Left: Status
-        $pdf->SetFont('Arial', 'B', 7.5);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->SetXY(22, 51.5);
-        $pdf->Cell(50, 4, 'PAYMENT STATUS', 0, 1);
-
-        $pdf->SetFillColor($stCfg['bg'][0], $stCfg['bg'][1], $stCfg['bg'][2]);
-        $pdf->SetDrawColor($stCfg['border'][0], $stCfg['border'][1], $stCfg['border'][2]);
-        $pdf->RoundedRect(22, 56.5, 34, 7.5, 2, 'DF');
-
-        $pdf->SetFont('Arial', 'B', 8);
-        $pdf->SetTextColor($stCfg['text'][0], $stCfg['text'][1], $stCfg['text'][2]);
-        $pdf->SetXY(22, 56.5);
-        $pdf->Cell(34, 7.5, $stCfg['label'], 0, 0, 'C');
-
-        // Hero Card Right: Amount
-        $pdf->SetFont('Arial', 'B', 7.5);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->SetXY(100, 50.5);
-        $pdf->Cell(90, 4, 'TOTAL AMOUNT PAID', 0, 1, 'R');
-
-        $pdf->SetFont('Arial', 'B', 19);
-        $pdf->SetTextColor(15, 23, 42);
-        $pdf->SetXY(100, 54.5);
-        $pdf->Cell(90, 9, money_round($amountPaid, 2) . ' ' . PipraPayReceiptPDF::cleanStr($tx['currency']), 0, 1, 'R');
-
-        if (!empty($tx['local_net_amount']) && (!empty($tx['local_currency']) && $tx['local_currency'] != $tx['currency'])) {
-            $pdf->SetFont('Arial', '', 8);
-            $pdf->SetTextColor(100, 116, 139);
-            $pdf->SetXY(100, 63.5);
-            $pdf->Cell(90, 4, PipraPayReceiptPDF::cleanStr('Local Equivalent: ' . money_round($tx['local_net_amount'], 2) . ' ' . $tx['local_currency']), 0, 1, 'R');
-        }
-
-        // 4. Two Info Cards (Paid By & Payment Info)
-        $yCards = 78;
-        $wCard  = 87;
-        $hCard  = 38;
-
-        // Card 1: Paid By (Left)
-        $pdf->SetFillColor(255, 255, 255);
-        $pdf->SetDrawColor(226, 232, 240);
-        $pdf->RoundedRect(15, $yCards, $wCard, $hCard, 2.5, 'DF');
-
-        // Header Tab
-        $pdf->SetFillColor(241, 245, 249);
-        $pdf->RoundedRect(15, $yCards, $wCard, 8, 2.5, 'DF', '12');
-        $pdf->SetFont('Arial', 'B', 7.5);
-        $pdf->SetTextColor(71, 85, 105);
-        $pdf->SetXY(19, $yCards + 2);
-        $pdf->Cell(79, 4, 'CUSTOMER DETAILS', 0, 0);
-
-        // Content
-        $custName   = !empty($tx['customer']['name']) ? pp_dedupeName($tx['customer']['name']) : 'N/A';
-        $custEmail  = !empty($tx['customer']['email']) ? $tx['customer']['email'] : 'N/A';
-        $custMobile = !empty($tx['customer']['mobile']) ? $tx['customer']['mobile'] : 'N/A';
-
-        $pdf->SetXY(19, $yCards + 11);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->Cell(15, 5, 'Name:', 0, 0);
-        $pdf->SetFont('Arial', 'B', 8.5);
-        $pdf->SetTextColor(15, 23, 42);
-        $pdf->Cell(64, 5, PipraPayReceiptPDF::cleanStr($custName), 0, 1);
-
-        $pdf->SetXY(19, $yCards + 17.5);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->Cell(15, 5, 'Email:', 0, 0);
-        $pdf->SetFont('Arial', '', 8.5);
-        $pdf->SetTextColor(51, 65, 85);
-        $pdf->Cell(64, 5, PipraPayReceiptPDF::cleanStr($custEmail), 0, 1);
-
-        $pdf->SetXY(19, $yCards + 24);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->Cell(15, 5, 'Mobile:', 0, 0);
-        $pdf->SetFont('Arial', '', 8.5);
-        $pdf->SetTextColor(51, 65, 85);
-        $pdf->Cell(64, 5, PipraPayReceiptPDF::cleanStr($custMobile), 0, 1);
-
-        // Card 2: Payment Details (Right)
-        $xRight = 108;
-        $pdf->SetFillColor(255, 255, 255);
-        $pdf->SetDrawColor(226, 232, 240);
-        $pdf->RoundedRect($xRight, $yCards, $wCard, $hCard, 2.5, 'DF');
-
-        // Header Tab
-        $pdf->SetFillColor(241, 245, 249);
-        $pdf->RoundedRect($xRight, $yCards, $wCard, 8, 2.5, 'DF', '12');
-        $pdf->SetFont('Arial', 'B', 7.5);
-        $pdf->SetTextColor(71, 85, 105);
-        $pdf->SetXY($xRight + 4, $yCards + 2);
-        $pdf->Cell(79, 4, 'TRANSACTION INFO', 0, 0);
-
-        // Content
-        $payMethod = !empty($tx['payment_method']) ? $tx['payment_method'] : 'Online Gateway';
-
-        $pdf->SetXY($xRight + 4, $yCards + 11);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->Cell(18, 5, 'Method:', 0, 0);
-        $pdf->SetFont('Arial', 'B', 8.5);
-        $pdf->SetTextColor(15, 23, 42);
-        $pdf->Cell(61, 5, PipraPayReceiptPDF::cleanStr($payMethod), 0, 1);
-
-        $pdf->SetXY($xRight + 4, $yCards + 17.5);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->Cell(18, 5, 'Ref ID:', 0, 0);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->SetTextColor(51, 65, 85);
-        $pdf->Cell(61, 5, PipraPayReceiptPDF::cleanStr($tx['ref']), 0, 1);
-
-        $pdf->SetXY($xRight + 4, $yCards + 24);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->Cell(18, 5, 'Date/Time:', 0, 0);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->SetTextColor(51, 65, 85);
-        $pdf->Cell(61, 5, PipraPayReceiptPDF::cleanStr($createdDate), 0, 1);
-
-        // 5. Payment Breakdown Table
-        $yTable = 122;
-        $pdf->SetFillColor(15, 23, 42);
-        $pdf->SetDrawColor(15, 23, 42);
-        $pdf->RoundedRect(15, $yTable, 180, 8.5, 2, 'DF');
-
-        $pdf->SetFont('Arial', 'B', 8);
-        $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetXY(20, $yTable + 2);
-        $pdf->Cell(115, 4.5, 'DESCRIPTION', 0, 0);
-        $pdf->SetXY(135, $yTable + 2);
-        $pdf->Cell(55, 4.5, 'AMOUNT', 0, 1, 'R');
-
-        $currY = $yTable + 9.5;
-
-        // Base Amount Row
-        $pdf->SetDrawColor(226, 232, 240);
-        $pdf->SetLineWidth(0.2);
-        $pdf->Line(15, $currY + 8.5, 195, $currY + 8.5);
-
-        $pdf->SetFont('Arial', '', 8.5);
-        $pdf->SetTextColor(15, 23, 42);
-        $pdf->SetXY(20, $currY + 2);
-        $pdf->Cell(115, 4.5, 'Base Transaction Amount', 0, 0);
-        $pdf->SetFont('Arial', 'B', 8.5);
-        $pdf->SetXY(135, $currY + 2);
-        $pdf->Cell(55, 4.5, money_round($tx['amount'] ?? 0, 2) . ' ' . PipraPayReceiptPDF::cleanStr($tx['currency']), 0, 1, 'R');
-
-        $currY += 8.5;
-
-        // Discount Row
-        if (!empty($tx['discount_amount']) && floatval($tx['discount_amount']) > 0) {
-            $pdf->Line(15, $currY + 8.5, 195, $currY + 8.5);
-            $pdf->SetFont('Arial', '', 8.5);
-            $pdf->SetTextColor(22, 101, 52);
-            $pdf->SetXY(20, $currY + 2);
-            $pdf->Cell(115, 4.5, 'Promotional / Special Discount', 0, 0);
-            $pdf->SetFont('Arial', 'B', 8.5);
-            $pdf->SetXY(135, $currY + 2);
-            $pdf->Cell(55, 4.5, '-' . money_round($tx['discount_amount'], 2) . ' ' . PipraPayReceiptPDF::cleanStr($tx['currency']), 0, 1, 'R');
-            $currY += 8.5;
-        }
-
-        // Processing Fee Row
-        if (!empty($tx['processing_fee']) && floatval($tx['processing_fee']) > 0) {
-            $pdf->Line(15, $currY + 8.5, 195, $currY + 8.5);
-            $pdf->SetFont('Arial', '', 8.5);
-            $pdf->SetTextColor(71, 85, 105);
-            $pdf->SetXY(20, $currY + 2);
-            $pdf->Cell(115, 4.5, 'Payment Gateway Processing Fee', 0, 0);
-            $pdf->SetFont('Arial', 'B', 8.5);
-            $pdf->SetXY(135, $currY + 2);
-            $pdf->Cell(55, 4.5, '+' . money_round($tx['processing_fee'], 2) . ' ' . PipraPayReceiptPDF::cleanStr($tx['currency']), 0, 1, 'R');
-            $currY += 8.5;
-        }
-
-        // Grand Total Row
-        $currY += 2;
-        $pdf->SetFillColor(241, 245, 249);
-        $pdf->SetDrawColor(203, 213, 225);
-        $pdf->RoundedRect(15, $currY, 180, 10, 2, 'DF');
-
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->SetTextColor(15, 23, 42);
-        $pdf->SetXY(20, $currY + 2.5);
-        $pdf->Cell(115, 5, 'TOTAL AMOUNT PAID', 0, 0);
-
+        $pdf->Ln(3);
         $pdf->SetFont('Arial', 'B', 12);
-        $pdf->SetTextColor($pR, $pG, $pB);
-        $pdf->SetXY(135, $currY + 2.5);
-        $pdf->Cell(55, 5, money_round($amountPaid, 2) . ' ' . PipraPayReceiptPDF::cleanStr($tx['currency']), 0, 1, 'R');
+        $pdf->SetTextColor($color[0], $color[1], $color[2]);
+        $pdf->Cell(0, 8, 'STATUS: '.$status, 0, 1, 'C');
+        $pdf->SetTextColor(0,0,0);
 
-        // 6. Security Notice Box
-        $yNotice = $currY + 16;
-        $pdf->SetFillColor(248, 250, 252);
-        $pdf->SetDrawColor(226, 232, 240);
-        $pdf->RoundedRect(15, $yNotice, 180, 16, 2.5, 'DF');
+        $pdf->Ln(6);
+        $pdf->SetFont('Arial', '', 11);
+        $pdf->Cell(0, 6, 'Amount Paid', 0, 1, 'C');
 
-        $pdf->SetFont('Arial', 'I', 8);
-        $pdf->SetTextColor(100, 116, 139);
-        $pdf->SetXY(15, $yNotice + 3.5);
-        $pdf->Cell(180, 4.5, 'This is a computer-generated official receipt. No physical signature or stamp is required.', 0, 1, 'C');
+        $pdf->SetFont('Arial', 'B', 22);
+        $pdf->Cell(0, 12, money_round($amountPaid, 2), 0, 1, 'C');
 
-        $pdf->SetFont('Arial', '', 7.5);
-        $pdf->SetTextColor(148, 163, 184);
-        $pdf->SetXY(15, $yNotice + 8.5);
-        $pdf->Cell(180, 4, 'For any questions or support, please contact the merchant referencing the transaction ID.', 0, 1, 'C');
+        $pdf->Ln(2);
+        $pdf->SetFont('Arial', '', 11);
+        $pdf->Cell(0, 6, 'Local Net Amount: '.money_round($tx['local_net_amount'], 2).' '.$tx['local_currency'], 0, 1, 'C');
 
-        // 7. Footer Watermark
-        $watermark = !empty($data['options']['watermark_text']) ? $data['options']['watermark_text'] : 'Secured by PipraPay';
-        $pdf->SetFont('Arial', '', 7.5);
-        $pdf->SetTextColor(148, 163, 184);
-        $pdf->SetXY(15, 280);
-        $pdf->Cell(180, 4, PipraPayReceiptPDF::cleanStr($watermark . ' • Fast, Safe & Secure Digital Payments'), 0, 1, 'C');
+        $pdf->Ln(6);
+        $pdf->Line(10, $pdf->GetY(), 200, $pdf->GetY());
+        $pdf->Ln(6);
 
-        $pdf->Output('D', 'Receipt-' . $tx['ref'] . '.pdf');
+        sectionTitle($pdf, 'Transaction Details');
+        infoRow($pdf, 'Transaction Ref', $tx['ref']);
+        infoRow($pdf, 'Payment Method', $tx['payment_method']);
+        infoRow($pdf, 'Created Date', convertUTCtoUserTZ($tx['created_date'], ($brand['locale']['timezone'] === '--' || $brand['locale']['timezone'] === '') ? 'Asia/Dhaka' : $brand['locale']['timezone'], "M d, Y h:i A"));
+
+        $pdf->Ln(3);
+        sectionTitle($pdf, 'Customer Details');
+        infoRow($pdf, 'Name', $tx['customer']['name']);
+        infoRow($pdf, 'Email', $tx['customer']['email']);
+        infoRow($pdf, 'Mobile', $tx['customer']['mobile']);
+
+        $pdf->Ln(3);
+        sectionTitle($pdf, 'Payment Breakdown');
+        infoRow($pdf, 'Amount', money_round($tx['amount'], 2).' '.$tx['currency']);
+        infoRow($pdf, 'Discount', money_round($tx['discount_amount'], 2).' '.$tx['currency']);
+        infoRow($pdf, 'Processing Fee', money_round($tx['processing_fee'], 2).' '.$tx['currency']);
+
+
+        $pdf->Ln(10);
+        $pdf->SetFont('Arial', 'I', 9);
+        $pdf->Cell(0, 6, 'This is a system generated receipt.', 0, 1, 'C');
+
+        $pdf->Output('D', 'Receipt-'.$tx['ref'].'.pdf');
     }
 
-    function pp_dedupeName($name)
+    function sectionTitle($pdf, $title)
     {
-        $name = trim((string) ($name ?? ''));
-        $tokens = preg_split('/\s+/', $name);
-        $count = count($tokens);
+        $pdf->SetFont('Arial', 'B', 13);
+        $pdf->Cell(0, 8, $title, 0, 1);
+    }
 
-        if ($count >= 2 && $count % 2 === 0) {
-            $half = intval($count / 2);
-            $first  = array_slice($tokens, 0, $half);
-            $second = array_slice($tokens, $half);
-
-            if ($first === $second) {
-                return implode(' ', $first);
-            }
-        }
-
-        return $name;
+    function infoRow($pdf, $label, $value)
+    {
+        $pdf->SetFont('Arial', 'B', 11);
+        $pdf->Cell(60, 8, $label, 0);
+        $pdf->SetFont('Arial', '', 11);
+        $pdf->Cell(0, 8, $value, 0, 1);
     }
 
     function resolveModuleLanguage($brandLanguage, array $supportedLanguages)
@@ -3238,7 +2703,7 @@
                             'copy' => true,
                             'value' => $data['transaction']['local_net_amount'],
                             'vars' => [
-                                '{amount}' => number_format((float)$data['transaction']['local_net_amount'], 2),
+                                '{amount}' => number_format($data['transaction']['local_net_amount'], 2),
                                 '{currency}' => $data['transaction']['local_currency']
                             ]
                         ],
@@ -3320,427 +2785,162 @@
                 $instructions = $gateway->instructions($data);
             }
 
-            $vMethodCheck = $data['options']['verification_method'] ?? 'trx_id';
+            if(isset($instructions)){
+                echo '<ol class="payment-instructions">';
 
-            if ($vMethodCheck === 'phone_number') {
-                $brandName = htmlspecialchars($data['brand']['brand_name'] ?? $data['brand']['name'] ?? 'PipraPay Merchant', ENT_QUOTES);
-                $refNo = htmlspecialchars($data['transaction']['ref'] ?? '', ENT_QUOTES);
-                $amountFormatted = number_format((float)($data['transaction']['amount'] ?? 0), 2);
+                $rowli = 0;
+
+                foreach ($instructions as $step) {
+                    $rowli = $rowli+1;
+
+                    // Resolve language directly
+                    $text = $lang[$step['text']] ?? $step['text'];
+
+                    // Replace variables
+                    if (!empty($step['vars'])) {
+                        foreach ($step['vars'] as $k => $v) {
+                            $text = str_replace($k, '<span class="dynamic-value">'.$v.'</span>', $text);
+                        }
+                    }
+
+                    echo '<li class="li-'.$rowli.'">';
+                    echo ($step['icon'] == "") ? '<div class="dot"></div>' : $step['icon'];
+
+                    echo '<p>';
+                    echo $text;
+
+                    /* Copy button */
+                    if (!empty($step['copy']) && isset($step['value'])) {
+                        echo ' <span class="button-icon"
+                            onclick="copy_value(\'' . htmlspecialchars($step['value'], ENT_QUOTES) . '\')">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/>
+                                <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/>
+                            </svg>
+                        </span>';
+                    }
+
+                    /* Action button */
+                    if (!empty($step['action'])) {
+                        $action = $step['action'];
+
+                        if ($action['type'] === 'image' && !empty($action['value'])) {
+                            echo ' <span class="button-icon"
+                                onclick="pp_show_image(\''.htmlspecialchars($action['value'], ENT_QUOTES).'\')">
+                                '.$action['label'].'
+                            </span>';
+                        }else{
+                            echo '<style>.li-'.$rowli.'{display: none !important;}</style>';
+                        }
+                    }
+
+                    echo '</p>';
+                    echo '</li>';
+
+                }
+
+                echo '</ol>';
 
                 echo '
-                <div id="pp-step1-account-wrapper" class="card shadow-sm border-0 my-3" style="max-width: 440px; margin: 0 auto; overflow: hidden; border-radius: 12px;">
-                    <div class="d-flex justify-content-between align-items-center p-3 bg-white border-bottom">
-                        <div>
-                            <div class="fw-bold text-dark" style="font-size: 15px;">'.$brandName.'</div>
-                            <div class="text-muted small">Inv: '.$refNo.'</div>
+                    <div id="pp-image-modal" class="pp-modal" style="display:none;">
+                        <div class="pp-modal-content">
+                            <span class="pp-close" onclick="pp_close_image()">&times;</span>
+                            <div class="pp-model-image-b"><img id="pp-modal-image" src="" alt="Preview"></div>
                         </div>
-                        <div class="fw-bold text-dark" style="font-size: 18px;">৳'.$amountFormatted.'</div>
                     </div>
-                    <!-- Step Progress Indicator -->
-                    <div class="px-3 py-2 bg-light border-bottom d-flex align-items-center justify-content-between" style="font-size: 11px;">
-                        <span class="badge rounded-pill px-2.5 py-1 text-white fw-bold" style="background: #e2136e;">Step 1 of 2</span>
-                        <span class="fw-bold text-secondary">Enter Account Number ➔ Next Step</span>
-                    </div>
-                    <div class="p-4 text-center text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%);">
-                        <h6 class="fw-bold mb-3 text-white" style="letter-spacing: 0.5px; font-size: 16px;">Your bKash / Mobile Banking Account Number</h6>
-                        <div class="mb-3">
-                            <input type="tel" id="pp-step1-mobile-input" class="form-control form-control-lg text-center fw-bold" placeholder="e.g 01XXXXXXXXX" style="height: 48px; border-radius: 8px; font-size: 18px; color: #333; background: #fff; border: none; letter-spacing: 1px;" maxlength="11" oninput="pp_check_step1_validity()" />
-                        </div>
-                        <p class="small text-white-50 mb-0">Confirm and proceed, terms & conditions</p>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
-                        <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="window.history.back()">Cancel</button>
-                        <button type="button" id="pp-step1-confirm-btn" class="btn btn-secondary px-4 rounded-pill fw-bold text-muted" disabled style="opacity: 0.7; cursor: not-allowed; background: #e9ecef; border-color: #ced4da; color: #6c757d;" onclick="pp_proceed_to_step2()">Confirm</button>
-                    </div>
-                </div>
+
+                    <script data-cfasync="false">
+                        function pp_show_image(src) {
+                            const modal = document.getElementById("pp-image-modal");
+                            const img = document.getElementById("pp-modal-image");
+
+                            img.src = src;
+                            modal.style.display = "flex";
+                        }
+
+                        function pp_close_image() {
+                            document.getElementById("pp-image-modal").style.display = "none";
+                        }
+                    </script>
                 ';
             }
 
-            $step2Style = ($vMethodCheck === 'phone_number') ? 'style="display:none;"' : '';
-            echo '<div id="pp-step2-instructions-wrapper" '.$step2Style.'>';
-
-            if ($vMethodCheck === 'phone_number') {
-                $brandName = htmlspecialchars($data['brand']['brand_name'] ?? $data['brand']['name'] ?? 'PipraPay Merchant', ENT_QUOTES);
-                $refNo = htmlspecialchars($data['transaction']['ref'] ?? '', ENT_QUOTES);
-                $amountFormatted = number_format((float)($data['transaction']['amount'] ?? 0), 2);
-                $targetNumber = htmlspecialchars($data['options']['number'] ?? $data['options']['mobile_number'] ?? $data['options']['account_number'] ?? '01706016565', ENT_QUOTES);
-                $numberType = htmlspecialchars($data['options']['number_type'] ?? 'PERSONAL NUMBER', ENT_QUOTES);
-
-                echo '
-                <div class="card shadow-sm border-0 my-3" style="max-width: 440px; margin: 0 auto; overflow: hidden; border-radius: 12px;">
-                    <!-- Top Header -->
-                    <div class="d-flex justify-content-between align-items-center p-3 bg-white border-bottom">
-                        <div>
-                            <div class="fw-bold text-dark" style="font-size: 15px;">'.$brandName.'</div>
-                            <div class="text-muted small">Inv: '.$refNo.'</div>
-                        </div>
-                        <div class="fw-bold text-dark" style="font-size: 18px;">৳'.$amountFormatted.'</div>
-                    </div>
-                    <!-- Step Progress Indicator -->
-                    <div class="px-3 py-2 bg-light border-bottom d-flex align-items-center justify-content-between" style="font-size: 11px;">
-                        <span class="badge rounded-pill px-2.5 py-1 text-white fw-bold" style="background: #e2136e;">Step 2 of 2</span>
-                        <span class="fw-bold text-success">✓ Account Saved ➔ Auto Verifying</span>
-                    </div>
-
-                    <!-- Pink Body -->
-                    <div class="p-3 text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%); font-size: 13px;">
-                        <!-- Target Number Box -->
-                        <div class="p-2 mb-3 rounded d-flex justify-content-between align-items-center bg-white shadow-sm" style="border: 1px solid #fcd6e5;">
-                            <div>
-                                <div class="fw-bold" style="font-size: 10px; letter-spacing: 1px; color: #e2136e !important; text-transform: uppercase;">'.$numberType.'</div>
-                                <div class="fw-bold" style="font-size: 20px; letter-spacing: 1px; color: #1e293b !important;">'.$targetNumber.'</div>
-                            </div>
-                            <button type="button" id="pp-copy-num-btn" class="btn btn-sm shadow-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5" onclick="copy_value(\''.$targetNumber.'\'); if(typeof pp_mark_copied === \'function\') pp_mark_copied(this);" title="Copy Number" style="background: #e2136e !important; color: #ffffff !important; border: none !important; font-size: 12px; cursor: pointer;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
-                                <span style="color: #ffffff !important;">Copy</span>
-                            </button>
-                        </div>
-
-                        <!-- Instruction Steps -->
-                        <div class="mb-2 d-flex align-items-center gap-2">
-                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important;">1</span>
-                            <span class="fw-semibold" style="color: #ffffff !important;">উপরে দেওয়া নম্বরটি কপি করুন</span>
-                        </div>
-                        <div class="mb-2 d-flex align-items-center gap-2">
-                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important;">2</span>
-                            <span class="fw-semibold" style="color: #ffffff !important;">বিকাশ অ্যাপ ওপেন করুন অথবা *247# ডায়াল করুন</span>
-                        </div>
-
-                        <!-- bKash Send Money Illustration -->
-                        <div class="my-3 p-2 text-center position-relative shadow" style="max-width: 270px; margin: 0 auto; border-radius: 12px; background: #ffffff !important; border: 1px solid #f1f5f9;">
-                            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
-                                <span class="badge rounded-pill px-2 py-1 text-white fw-bold" style="font-size: 10px; background: #e2136e !important;">bKash</span>
-                                <small class="fw-bold" style="font-size: 10px; color: #475569 !important;">Send Money / সেন্ড মানি</small>
-                            </div>
-                            <div class="p-2 border rounded d-flex align-items-center justify-content-center gap-2" style="background: #fff0f5 !important; border-color: #fbcfe8 !important;">
-                                <div class="p-1.5 rounded-circle bg-white shadow-sm border d-flex align-items-center justify-content-center" style="border-color: #e2136e !important;">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2.8"><path d="M12 5v14M5 12h14"/></svg>
-                                </div>
-                                <div class="text-start">
-                                    <div class="fw-bold" style="font-size: 13px; color: #be185d !important;">সেন্ড মানি</div>
-                                    <div class="fw-semibold" style="font-size: 10px; color: #64748b !important;">Send Money</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mb-3 d-flex align-items-start gap-2">
-                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important; flex-shrink: 0; margin-top: 2px;">3</span>
-                            <span style="font-size: 11.5px; opacity: 0.98; color: #ffffff !important;">নির্ধারিত নম্বরে সঠিক পরিমাণ টাকা পাঠিয়ে সেন্ড মানি/ক্যাশ আউট এর পর অটো ভেরিফিকেশনের জন্য কিছু সময় অপেক্ষা করুন, যেকোনো সমস্যায় সাপোর্ট নিন।</span>
-                        </div>
-
-                        <!-- Session Countdown Timer & Status -->
-                        <div class="mt-3 pt-2 border-top border-white-50 text-center">
-                            <div class="small fw-bold text-white mb-1">◆ পেমেন্ট সম্পন্ন হলে কিছু সময় অপেক্ষা করুন...</div>
-                            <div class="small text-white-50">Session expires in <span id="pp-timer" class="fw-bold text-white">05:00</span></div>
-                        </div>
-
-                        <!-- Manual TrxID fallback field (shows after timeout) -->
-                        <div id="pp-trxid-fallback-wrapper" class="mt-3 p-2 bg-white rounded text-dark" style="display: none;">
-                            <label class="form-label small fw-bold mb-1 text-danger">Transaction ID দিয়ে ভেরিফাই করুন:</label>
-                            <input type="text" id="pp-manual-trxid-input" class="form-control text-center fw-bold text-uppercase mb-2" placeholder="e.g. 9KHMRFAY5P" />
-                            <small class="text-muted d-block" style="font-size: 10px;">অটো ভেরিফাই না হলে বিকাশ থেকে প্রাপ্ত TrxID প্রদান করুন</small>
-                        </div>
-                    </div>
-
-                    <!-- Hidden Form & Footer -->
-                    <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="action-v2" value="transaction-verify">
-                        <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
-                        <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
-                        <input type="hidden" id="pp-step2-mobile-input" name="mobile_number" value="">
-                        <input type="hidden" id="pp-step2-trxid-input" name="trxid" value="">
-
-                        <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
-                            <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="pp_back_to_step1()">Cancel</button>
-                            <button type="submit" id="pp-step2-submit-btn" class="btn px-4 rounded-pill fw-bold text-white payment-form-btn d-flex align-items-center gap-1" style="background: #e2136e !important; border-color: #e2136e !important; color: #ffffff !important;">
-                                <span class="spinner-border spinner-border-sm me-1 text-white" role="status" style="color: #ffffff !important;"></span> Auto verifying...
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <script data-cfasync="false">
-                    function pp_mark_copied(btn) {
-                        if (!btn) return;
-                        const originalHtml = btn.innerHTML;
-                        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> <span>Copied!</span>`;
-                        btn.style.setProperty("background-color", "#16a34a", "important");
-                        setTimeout(() => {
-                            btn.innerHTML = originalHtml;
-                            btn.style.setProperty("background-color", "#e2136e", "important");
-                        }, 2000);
-                    }
-
-                    function pp_check_step1_validity() {
-                        const input = document.getElementById("pp-step1-mobile-input");
-                        const btn = document.getElementById("pp-step1-confirm-btn");
-                        if (!input || !btn) return;
-
-                        // Sanitize to digits only
-                        let val = input.value.replace(/\\D/g, "");
-                        if (input.value !== val) {
-                            input.value = val;
-                        }
-
-                        // Check BD mobile format (starts with 01 and 11 digits total)
-                        const isValid = /^01[3-9]\\d{8}$/.test(val);
-                        if (isValid) {
-                            btn.disabled = false;
-                            btn.style.opacity = "1";
-                            btn.style.cursor = "pointer";
-                            btn.style.setProperty("background-color", "#e2136e", "important");
-                            btn.style.setProperty("border-color", "#e2136e", "important");
-                            btn.style.setProperty("color", "#ffffff", "important");
-                            btn.className = "btn px-4 rounded-pill fw-bold";
-                        } else {
-                            btn.disabled = true;
-                            btn.style.opacity = "0.7";
-                            btn.style.cursor = "not-allowed";
-                            btn.style.setProperty("background-color", "#e9ecef", "important");
-                            btn.style.setProperty("border-color", "#ced4da", "important");
-                            btn.style.setProperty("color", "#6c757d", "important");
-                            btn.className = "btn px-4 rounded-pill fw-bold";
-                        }
-                    }
-
-                    let ppAutoPollInterval = null;
-                    function pp_trigger_auto_verify(isManualSubmit) {
-                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
-                        if (!step2 || step2.style.display === "none") return;
-
-                        const form = step2.querySelector("form.payment-form-submit");
-                        if (!form) return;
-
-                        // Sync manual TrxID if typed
-                        const manualTrx = document.getElementById("pp-manual-trxid-input");
-                        const hiddenTrx = document.getElementById("pp-step2-trxid-input");
-                        if (manualTrx && hiddenTrx) {
-                            hiddenTrx.value = manualTrx.value.trim();
-                        }
-
-                        const formData = new FormData(form);
-                        fetch("", {
-                            method: "POST",
-                            body: formData
-                        })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.status === "true") {
-                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
-                                if (typeof success === "function") {
-                                    success(data);
-                                } else if (data.redirect_url) {
-                                    window.location.href = data.redirect_url;
-                                } else {
-                                    window.location.reload();
-                                }
-                            } else if (isManualSubmit && data.title === "Waiting for Payment") {
-                                // If manually submitted with wrong/unmatched TrxID, mark form processed and close
-                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
-                                if (typeof success === "function") {
-                                    success({ title: "Submitted", message: "Transaction ID submitted for manual review." });
-                                } else {
-                                    alert("Transaction ID submitted for manual review.");
-                                    window.location.reload();
-                                }
-                            }
-                        })
-                        .catch(err => console.error("Auto verify check:", err));
-                    }
-
-                    function pp_proceed_to_step2() {
-                        const input = document.getElementById("pp-step1-mobile-input");
-                        const val = input ? input.value.trim() : "";
-                        if (!/^01[3-9]\\d{8}$/.test(val)) return;
-
-                        const step1 = document.getElementById("pp-step1-account-wrapper");
-                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
-                        const hiddenInput = document.getElementById("pp-step2-mobile-input");
-
-                        if (step1) step1.style.display = "none";
-                        if (step2) step2.style.display = "block";
-                        if (hiddenInput) hiddenInput.value = val;
-
-                        pp_start_countdown();
-
-                        // Trigger immediate check & start auto polling every 3 seconds
-                        pp_trigger_auto_verify();
-                        if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
-                        ppAutoPollInterval = setInterval(pp_trigger_auto_verify, 3000);
-                    }
-
-                    function pp_back_to_step1() {
-                        if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
-                        const step1 = document.getElementById("pp-step1-account-wrapper");
-                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
-                        if (step1) step1.style.display = "block";
-                        if (step2) step2.style.display = "none";
-                    }
-
-                    let ppTimerInterval = null;
-                    function pp_start_countdown() {
-                        if (ppTimerInterval) clearInterval(ppTimerInterval);
-                        let duration = 300; // 5 minutes
-                        const display = document.getElementById("pp-timer");
-
-                        ppTimerInterval = setInterval(function () {
-                            let minutes = parseInt(duration / 60, 10);
-                            let seconds = parseInt(duration % 60, 10);
-
-                            minutes = minutes < 10 ? "0" + minutes : minutes;
-                            seconds = seconds < 10 ? "0" + seconds : seconds;
-
-                            if (display) display.textContent = minutes + ":" + seconds;
-
-                            if (--duration < 0) {
-                                clearInterval(ppTimerInterval);
-                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
-                                if (display) display.textContent = "Expired";
-
-                                // Show manual TrxID input option when timeout occurs
-                                const fallbackWrapper = document.getElementById("pp-trxid-fallback-wrapper");
-                                const submitBtn = document.getElementById("pp-step2-submit-btn");
-                                if (fallbackWrapper) fallbackWrapper.style.display = "block";
-                                if (submitBtn) {
-                                    submitBtn.innerHTML = "Verify Transaction ID";
-                                    submitBtn.style.background = "#e2136e";
-                                }
-
-                                const manualInput = document.getElementById("pp-manual-trxid-input");
-                                if (manualInput) {
-                                    manualInput.addEventListener("change", function() {
-                                        const hiddenTrx = document.getElementById("pp-step2-trxid-input");
-                                        if (hiddenTrx) hiddenTrx.value = this.value.trim();
-                                        if (this.value.trim().length >= 8) {
-                                            pp_trigger_auto_verify(true);
-                                        }
-                                    });
-                                }
-                            }
-                        }, 1000);
-                    }
-
-                    document.addEventListener("DOMContentLoaded", function() {
-                        const input = document.getElementById("pp-step1-mobile-input");
-                        if (input) {
-                            input.addEventListener("keyup", pp_check_step1_validity);
-                            input.addEventListener("paste", function() {
-                                setTimeout(pp_check_step1_validity, 50);
-                            });
-                            pp_check_step1_validity();
-                        }
-                    });
-                </script>
-                ';
-            } else {
-                if(isset($instructions)){
-                    echo '<ol class="payment-instructions">';
-
-                    $rowli = 0;
-
-                    foreach ($instructions as $step) {
-                        $rowli = $rowli+1;
-
-                        // Resolve language directly
-                        $text = $lang[$step['text']] ?? $step['text'];
-
-                        // Replace variables
-                        if (!empty($step['vars'])) {
-                            foreach ($step['vars'] as $k => $v) {
-                                $text = str_replace($k, '<span class="dynamic-value">'.$v.'</span>', $text);
-                            }
-                        }
-
-                        echo '<li class="li-'.$rowli.'">';
-                        echo ($step['icon'] == "") ? '<div class="dot"></div>' : $step['icon'];
-
-                        echo '<p>';
-                        echo $text;
-
-                        /* Copy button */
-                        if (!empty($step['copy']) && isset($step['value'])) {
-                            echo ' <span class="button-icon"
-                                onclick="copy_value(\'' . htmlspecialchars($step['value'], ENT_QUOTES) . '\')">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                                    <path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/>
-                                    <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/>
-                                </svg>
-                            </span>';
-                        }
-
-                        /* Action button */
-                        if (!empty($step['action'])) {
-                            $action = $step['action'];
-
-                            if ($action['type'] === 'image' && !empty($action['value'])) {
-                                echo ' <span class="button-icon"
-                                    onclick="pp_show_image(\''.htmlspecialchars($action['value'], ENT_QUOTES).'\')">
-                                    '.$action['label'].'
-                                </span>';
-                            }else{
-                                echo '<style>.li-'.$rowli.'{display: none !important;}</style>';
-                            }
-                        }
-
-                        echo '</p>';
-                        echo '</li>';
-
-                    }
-
-                    echo '</ol>';
-
+            if(isset($gateway_info)){
+                if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
                     echo '
-                        <div id="pp-image-modal" class="pp-modal" style="display:none;">
-                            <div class="pp-modal-content">
-                                <span class="pp-close" onclick="pp_close_image()">&times;</span>
-                                <div class="pp-model-image-b"><img id="pp-modal-image" src="" alt="Preview"></div>
+                        <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="action-v2" value="transaction-verify">
+                            <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
+                            <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
+
+                            <div class="form-group  mt-3" style="display: none">
+                                <label class="form-label">'.$data['lang']['mobile_number'].'</label>
+                                <div class="form-control-wrap">
+                                    <input type="text" class="form-control" name="mobile_number" placeholder="'.$data['lang']['mobile_number'].'"> 
+                                </div>
                             </div>
-                        </div>
 
-                        <script data-cfasync="false">
-                            function pp_show_image(src) {
-                                const modal = document.getElementById("pp-image-modal");
-                                const img = document.getElementById("pp-modal-image");
-
-                                img.src = src;
-                                modal.style.display = "flex";
-                            }
-
-                            function pp_close_image() {
-                                document.getElementById("pp-image-modal").style.display = "none";
-                            }
-                        </script>
-                    ';
-                }
-
-                if(isset($gateway_info)){
-                    if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation" && $vMethodCheck !== 'phone_number'){
-                        $inputFieldHtml = '
-                            <div class="form-group mt-3">
+                            <div class="form-group  mt-3">
                                 <label class="form-label">'.$data['lang']['transaction_id'].'</label>
                                 <div class="form-control-wrap">
                                     <input type="text" class="form-control" name="trxid" placeholder="'.$data['lang']['enter_transaction_id'].'" required=""> 
                                 </div>
-                            </div>';
+                            </div>
 
-                        echo '
-                            <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
-                                <input type="hidden" name="action-v2" value="transaction-verify">
-                                <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
-                                <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
+                            <button class="btn btn-primary w-100 payment-form-btn mt-3" type="submit">'.$data['lang']['verify'].'</button>
+                        </form>
 
-                                '.$inputFieldHtml.'
+                        <script data-cfasync="false">
+                            document.addEventListener("DOMContentLoaded", function() {
+                                const form = document.querySelector(".payment-form-submit");
+                                const mobileWrapper = form.querySelector(`.form-group[style*="display: none"]`);
+                                const submitBtn = form.querySelector(".payment-form-btn");
 
-                                <button class="btn btn-primary w-100 payment-form-btn mt-3" type="submit">'.$data['lang']['verify'].'</button>
-                            </form>
-                        ';
-                    }
+                                form.addEventListener("submit", function(e) {
+                                    e.preventDefault();
+
+                                    const formData = new FormData(form);
+
+                                    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>`;
+
+                                    fetch("", { // replace "" with your PHP AJAX URL if needed
+                                        method: "POST",
+                                        body: formData
+                                    })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        submitBtn.innerHTML = `'.$data['lang']['verify'].'`;
+
+                                        if(data.status === "true") {
+                                            // Verified successfully
+                                            success(data); // pass data if needed
+                                        } else if(data.status === "false") {
+                                            // Failed verification
+                                            if(data.visible_number && data.visible_number === "true") {
+                                                mobileWrapper.style.display = "block";
+                                            }
+                                            // Call failed handler with title & message
+                                            failed(data.title, data.message);
+                                        } else {
+                                            // Unexpected response
+                                            failed("Unexpected Response", "Please try again later.");
+                                        }
+                                    })
+                                    .catch(err => {
+                                        submitBtn.innerHTML = `'.$data['lang']['verify'].'`;
+                                        console.error(err);
+                                        failed("Request Error", "Something went wrong. Please try again.");
+                                    });
+                                });
+                            });
+
+                        </script>
+
+                    ';
                 }
-            }
-            echo '</div>';
-            if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "manual"){
+                if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "manual"){
                     if(isset($gateway_info['verify_by']) && $gateway_info['verify_by'] == "trxid"){
                         echo '
                             <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
@@ -3811,7 +3011,7 @@
                                     <div class="form-group  mt-3">
                                         <label class="form-label">'.$data['lang']['upload_slip'].'</label>
                                         <div class="form-control-wrap">
-                                            <input type="file" class="form-control" name="slip" accept="image/*,application/pdf,.pdf" placeholder="'.$data['lang']['upload_slip'].'" required=""> 
+                                            <input type="file" class="form-control" name="slip" accept = "image/*" placeholder="'.$data['lang']['upload_slip'].'" required=""> 
                                         </div>
                                     </div>
 
@@ -3863,7 +3063,7 @@
                         }
                     }
                 }
-                echo '</div>';
+            }
 
             if(isset($_GET['pp_callback'])){
                 if (is_callable([$gateway, 'callback'])) {
@@ -4383,676 +3583,4 @@
             $this->offset = null;
         }
     }
-
-    function pp_fetch_update_manifest() {
-        // 1. Try GitHub Contents API (Instant & Uncached)
-        $apiUrls = [
-            'https://api.github.com/repos/alannurme/pay.nur-lab.com/contents/manifest.json',
-            'https://api.github.com/repos/samsusiyam/PipraPay/contents/manifest.json',
-            'https://api.github.com/repos/PipraPay/PipraPay/contents/manifest.json'
-        ];
-
-        foreach ($apiUrls as $apiUrl) {
-            if (function_exists('curl_init')) {
-                $ch = curl_init($apiUrl);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-                curl_setopt($ch, CURLOPT_USERAGENT, 'PipraPay-Updater/3.0');
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-
-                if ($httpCode === 200 && !empty($response)) {
-                    $apiData = json_decode($response, true);
-                    if (!empty($apiData['content'])) {
-                        $rawJson = base64_decode($apiData['content']);
-                        $decoded = json_decode($rawJson, true);
-                        if (is_array($decoded) && isset($decoded['channels'])) {
-                            return $decoded;
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. Fallback to Raw GitHub URL
-        $ts = time();
-        $urls = [
-            'https://raw.githubusercontent.com/alannurme/pay.nur-lab.com/main/manifest.json?t=' . $ts,
-            'https://raw.githubusercontent.com/samsusiyam/PipraPay/main/manifest.json?t=' . $ts,
-            'https://raw.githubusercontent.com/PipraPay/PipraPay/main/manifest.json?t=' . $ts
-        ];
-
-        foreach ($urls as $url) {
-            if (function_exists('curl_init')) {
-                $ch = curl_init($url);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-                curl_setopt($ch, CURLOPT_USERAGENT, 'PipraPay-Updater/3.0');
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-
-                if ($httpCode === 200 && !empty($response)) {
-                    $decoded = json_decode($response, true);
-                    if (is_array($decoded) && isset($decoded['channels'])) {
-                        return $decoded;
-                    }
-                }
-            }
-        }
-
-        // 3. Fallback to local manifest if available
-        $localPath = __DIR__ . '/../../manifest.json';
-        if (file_exists($localPath)) {
-            $localContent = file_get_contents($localPath);
-            $decoded = json_decode($localContent, true);
-            if (is_array($decoded) && isset($decoded['channels'])) {
-                return $decoded;
-            }
-        }
-
-        return null;
-    }
-
-    /* =========================================================================
-     * PIPRAPAY UNIFIED NOTIFICATION & ALERT ENGINE (Telegram, Discord, WhatsApp, Email, SMS)
-     * ========================================================================= */
-
-    function pp_send_telegram($text, $chatId = null, $botToken = null, $topicId = null) {
-        $token = !empty($botToken) ? $botToken : get_env('notification_telegram_token');
-        $chat = !empty($chatId) ? $chatId : get_env('notification_telegram_chat_id');
-        $topic = !empty($topicId) ? $topicId : get_env('notification_telegram_topic_id');
-
-        if (empty($token) || $token === '--' || empty($chat) || $chat === '--') {
-            return ['status' => false, 'message' => 'Telegram bot token or chat ID is not configured.'];
-        }
-
-        $url = "https://api.telegram.org/bot" . trim($token) . "/sendMessage";
-        $payload = [
-            'chat_id' => trim($chat),
-            'text' => $text,
-            'parse_mode' => 'HTML',
-            'disable_web_page_preview' => false
-        ];
-
-        if (!empty($topic) && $topic !== '--') {
-            $payload['message_thread_id'] = trim($topic);
-        }
-
-        if (!function_exists('curl_init')) {
-            return ['status' => false, 'message' => 'PHP cURL extension is required for Telegram notifications.'];
-        }
-
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($payload),
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_USERAGENT => 'PipraPay-Notification/3.0'
-        ]);
-        $res = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err = curl_error($ch);
-        curl_close($ch);
-
-        $json = json_decode($res, true);
-        if ($httpCode === 200 && isset($json['ok']) && $json['ok'] == true) {
-            return ['status' => true, 'message' => 'Telegram message sent successfully.'];
-        }
-        return ['status' => false, 'message' => $json['description'] ?? ($err ?: "Telegram API returned HTTP $httpCode: $res")];
-    }
-
-    function pp_send_discord($title, $description, $fields = [], $color = 3066993, $webhookUrl = null) {
-        $url = !empty($webhookUrl) ? $webhookUrl : get_env('notification_discord_webhook');
-        if (empty($url) || $url === '--') {
-            return ['status' => false, 'message' => 'Discord webhook URL is not configured.'];
-        }
-
-        $botName = get_env('notification_discord_bot_name') ?: 'PipraPay Alerts';
-        if ($botName === '--') $botName = 'PipraPay Alerts';
-
-        $embed = [
-            'title' => $title,
-            'description' => $description,
-            'color' => $color,
-            'fields' => $fields,
-            'timestamp' => date('c'),
-            'footer' => [
-                'text' => 'PipraPay Notification Engine'
-            ]
-        ];
-
-        $payload = [
-            'username' => $botName,
-            'embeds' => [$embed]
-        ];
-
-        if (!function_exists('curl_init')) {
-            return ['status' => false, 'message' => 'PHP cURL extension is required for Discord webhook.'];
-        }
-
-        $ch = curl_init(trim($url));
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($payload),
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_USERAGENT => 'PipraPay-Notification/3.0'
-        ]);
-        $res = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err = curl_error($ch);
-        curl_close($ch);
-
-        if ($httpCode >= 200 && $httpCode < 300) {
-            return ['status' => true, 'message' => 'Discord notification sent successfully.'];
-        }
-        $json = json_decode($res, true);
-        return ['status' => false, 'message' => $json['message'] ?? ($err ?: "Discord returned HTTP $httpCode: $res")];
-    }
-
-    function pp_send_whatsapp($phone, $message, $config = []) {
-        $apiUrl = !empty($config['api_url']) ? $config['api_url'] : get_env('notification_whatsapp_api_url');
-        $apiKey = !empty($config['api_key']) ? $config['api_key'] : get_env('notification_whatsapp_api_key');
-        $sender = !empty($config['sender_id']) ? $config['sender_id'] : get_env('notification_whatsapp_sender');
-
-        if (empty($apiUrl) || $apiUrl === '--') {
-            return ['status' => false, 'message' => 'WhatsApp API URL is not configured.'];
-        }
-
-        if (empty($phone) || $phone === '--') {
-            return ['status' => false, 'message' => 'WhatsApp target recipient phone number is missing.'];
-        }
-
-        $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
-        $url = str_replace(
-            ['{phone}', '{to}', '{number}', '{message}', '{api_key}'],
-            [urlencode($cleanPhone), urlencode($cleanPhone), urlencode($cleanPhone), urlencode($message), urlencode($apiKey)],
-            $apiUrl
-        );
-
-        if (!function_exists('curl_init')) {
-            return ['status' => false, 'message' => 'PHP cURL extension is required for WhatsApp API.'];
-        }
-
-        $ch = curl_init();
-        if (strpos($apiUrl, '{phone}') !== false || strpos($apiUrl, '{to}') !== false || strpos($apiUrl, '{message}') !== false) {
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        } else {
-            curl_setopt($ch, CURLOPT_URL, $apiUrl);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            $postData = [
-                'to' => $cleanPhone,
-                'phone' => $cleanPhone,
-                'number' => $cleanPhone,
-                'message' => $message,
-                'text' => $message,
-                'api_key' => $apiKey,
-                'token' => $apiKey,
-                'sender' => $sender
-            ];
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        }
-        curl_setopt($ch, CURLOPT_TIMEOUT, 12);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'PipraPay-Notification/3.0');
-        $res = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err = curl_error($ch);
-        curl_close($ch);
-
-        if ($httpCode >= 200 && $httpCode < 300) {
-            return ['status' => true, 'message' => 'WhatsApp message sent successfully.'];
-        }
-        return ['status' => false, 'message' => $err ?: "WhatsApp API returned HTTP $httpCode: $res"];
-    }
-
-    function pp_send_email($to, $subject, $htmlBody, $config = []) {
-        $fromName = !empty($config['from_name']) ? $config['from_name'] : (get_env('notification_email_from_name') ?: 'PipraPay');
-        $fromEmail = !empty($config['from_email']) ? $config['from_email'] : (get_env('notification_email_from') ?: 'noreply@' . ($_SERVER['HTTP_HOST'] ?? 'piprapay.com'));
-        if ($fromName === '--') $fromName = 'PipraPay';
-        if ($fromEmail === '--') $fromEmail = 'noreply@' . ($_SERVER['HTTP_HOST'] ?? 'piprapay.com');
-
-        $smtpHost = !empty($config['smtp_host']) ? $config['smtp_host'] : get_env('notification_email_smtp_host');
-        $smtpPort = !empty($config['smtp_port']) ? $config['smtp_port'] : get_env('notification_email_smtp_port');
-        $smtpUser = !empty($config['smtp_user']) ? $config['smtp_user'] : get_env('notification_email_smtp_user');
-        $smtpPass = !empty($config['smtp_pass']) ? $config['smtp_pass'] : get_env('notification_email_smtp_pass');
-        $smtpEnc  = !empty($config['smtp_enc']) ? $config['smtp_enc'] : get_env('notification_email_smtp_enc'); // ssl or tls
-
-        // If SMTP credentials provided, try direct SMTP connection
-        if (!empty($smtpHost) && $smtpHost !== '--') {
-            try {
-                $port = (!empty($smtpPort) && $smtpPort !== '--') ? (int)$smtpPort : 587;
-                $scheme = ($smtpEnc === 'ssl' || $port === 465) ? 'ssl://' : '';
-                $socket = @fsockopen($scheme . $smtpHost, $port, $errno, $errstr, 8);
-                if (!$socket) {
-                    return ['status' => false, 'message' => "Cannot connect to SMTP server ({$smtpHost}:{$port}). Error: {$errstr} ({$errno})"];
-                }
-
-                $read = function($sock) {
-                    $s = '';
-                    while ($line = fgets($sock, 515)) {
-                        $s .= $line;
-                        if (substr($line, 3, 1) === ' ') break;
-                    }
-                    return $s;
-                };
-                $write = function($sock, $cmd) {
-                    fputs($sock, $cmd . "\r\n");
-                };
-
-                $read($socket);
-                $write($socket, "EHLO " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
-                $read($socket);
-
-                if ($smtpEnc === 'tls' || $port === 587) {
-                    $write($socket, "STARTTLS");
-                    $tlsRes = $read($socket);
-                    if (strpos($tlsRes, '220') !== false) {
-                        stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-                        $write($socket, "EHLO " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
-                        $read($socket);
-                    }
-                }
-
-                if (!empty($smtpUser) && $smtpUser !== '--') {
-                    $write($socket, "AUTH LOGIN");
-                    $read($socket);
-                    $write($socket, base64_encode($smtpUser));
-                    $read($socket);
-                    $write($socket, base64_encode($smtpPass));
-                    $authRes = $read($socket);
-
-                    if (strpos($authRes, '235') === false) {
-                        fclose($socket);
-                        return ['status' => false, 'message' => "SMTP Authentication failed: " . trim($authRes)];
-                    }
-                }
-
-                $write($socket, "MAIL FROM: <$fromEmail>");
-                $fromRes = $read($socket);
-                $write($socket, "RCPT TO: <$to>");
-                $rcptRes = $read($socket);
-                $write($socket, "DATA");
-                $dataPrompt = $read($socket);
-
-                $headers = "MIME-Version: 1.0\r\n";
-                $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-                $headers .= "From: $fromName <$fromEmail>\r\n";
-                $headers .= "To: <$to>\r\n";
-                $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
-                $headers .= "Date: " . date('r') . "\r\n";
-
-                $write($socket, $headers . "\r\n" . $htmlBody . "\r\n.");
-                $dataRes = $read($socket);
-                $write($socket, "QUIT");
-                fclose($socket);
-
-                if (strpos($dataRes, '250') !== false) {
-                    return ['status' => true, 'message' => 'Email sent successfully via SMTP.'];
-                }
-                return ['status' => false, 'message' => "SMTP Error delivering message: " . trim($dataRes)];
-            } catch (Throwable $e) {
-                return ['status' => false, 'message' => "SMTP Exception: " . $e->getMessage()];
-            }
-        }
-
-        // Fallback to PHP native mail() only if explicitly desired
-        $headers  = "MIME-Version: 1.0\r\n";
-        $headers .= "Content-type: text/html; charset=UTF-8\r\n";
-        $headers .= "From: $fromName <$fromEmail>\r\n";
-        $headers .= "Reply-To: $fromEmail\r\n";
-        $headers .= "X-Mailer: PHP/" . phpversion();
-
-        $sent = @mail($to, $subject, $htmlBody, $headers);
-        if ($sent) {
-            return ['status' => true, 'message' => 'Email sent successfully via server mail().'];
-        }
-        return ['status' => false, 'message' => 'No SMTP configured and PHP mail() is unavailable. Please configure SMTP host & credentials.'];
-    }
-
-    function pp_send_sms($to, $message, $config = []) {
-        $gatewayUrl = !empty($config['api_url']) ? $config['api_url'] : get_env('notification_sms_api_url');
-        $apiKey     = !empty($config['api_key']) ? $config['api_key'] : get_env('notification_sms_api_key');
-        $senderId   = !empty($config['sender_id']) ? $config['sender_id'] : get_env('notification_sms_sender_id');
-
-        if (empty($gatewayUrl) || $gatewayUrl === '--') {
-            return ['status' => false, 'message' => 'SMS Gateway API URL is not configured.'];
-        }
-
-        if (empty($to) || $to === '--') {
-            return ['status' => false, 'message' => 'Target phone number is missing.'];
-        }
-
-        $cleanPhone = preg_replace('/[^0-9]/', '', $to);
-        $url = str_replace(
-            ['{to}', '{phone}', '{number}', '{message}', '{api_key}', '{sender_id}'],
-            [urlencode($cleanPhone), urlencode($cleanPhone), urlencode($cleanPhone), urlencode($message), urlencode($apiKey), urlencode($senderId)],
-            $gatewayUrl
-        );
-
-        if (!function_exists('curl_init')) {
-            return ['status' => false, 'message' => 'PHP cURL extension is required for SMS Gateway.'];
-        }
-
-        $ch = curl_init();
-        if (strpos($gatewayUrl, '{to}') !== false || strpos($gatewayUrl, '{phone}') !== false || strpos($gatewayUrl, '{message}') !== false) {
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        } else {
-            curl_setopt($ch, CURLOPT_URL, $gatewayUrl);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            $postData = [
-                'api_key'   => $apiKey,
-                'to'        => $cleanPhone,
-                'number'    => $cleanPhone,
-                'message'   => $message,
-                'sender_id' => $senderId
-            ];
-            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postData));
-        }
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'PipraPay-Notification/3.0');
-        $res = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err = curl_error($ch);
-        curl_close($ch);
-
-        if ($httpCode >= 200 && $httpCode < 300) {
-            return ['status' => true, 'message' => 'SMS dispatched successfully.'];
-        }
-        return ['status' => false, 'message' => $err ?: "SMS API returned HTTP $httpCode: $res"];
-    }
-
-    function pp_dispatch_notification($event, $data = []) {
-        $currency = $data['currency'] ?? 'BDT';
-        $amount = $data['amount'] ?? '0.00';
-        $trxId = $data['trx_id'] ?? ($data['transaction_id'] ?? 'N/A');
-        $gateway = $data['gateway'] ?? ($data['payment_method'] ?? 'PipraPay');
-        $customerName = $data['customer_name'] ?? ($data['name'] ?? 'Customer');
-        $customerEmail = $data['customer_email'] ?? ($data['email'] ?? '');
-        $customerPhone = $data['customer_phone'] ?? ($data['phone'] ?? '');
-        $invoiceId = $data['invoice_id'] ?? ($data['pp_id'] ?? 'N/A');
-        $siteName = get_env('brand-brand_name') ?: 'PipraPay';
-        if ($siteName === '--') $siteName = 'PipraPay';
-
-        // 1. Payment Success Event
-        if ($event === 'payment.success') {
-            // Admin Alerts - Telegram
-            $tgToken = get_env('notification_telegram_token');
-            $tgChat = get_env('notification_telegram_chat_id');
-            $tgEvent = get_env('notification_event_admin_payment_success_telegram');
-            if (!empty($tgToken) && $tgToken !== '--' && !empty($tgChat) && $tgChat !== '--' && $tgEvent !== 'no') {
-                $tgMsg = "🎉 <b>Payment Received!</b>\n\n"
-                       . "💰 <b>Amount:</b> {$amount} {$currency}\n"
-                       . "💳 <b>Gateway:</b> {$gateway}\n"
-                       . "🆔 <b>TrxID:</b> <code>{$trxId}</code>\n"
-                       . "👤 <b>Customer:</b> {$customerName}\n"
-                       . "📄 <b>Invoice:</b> #{$invoiceId}\n"
-                       . "⏰ <b>Time:</b> " . date('d M Y, h:i A') . "\n\n"
-                       . "🌐 <i>{$siteName} Payment Engine</i>";
-                pp_send_telegram($tgMsg);
-            }
-
-            // Admin Alerts - Discord
-            $dcWebhook = get_env('notification_discord_webhook');
-            $dcEvent = get_env('notification_event_admin_payment_success_discord');
-            if (!empty($dcWebhook) && $dcWebhook !== '--' && $dcEvent !== 'no') {
-                $fields = [
-                    ['name' => 'Amount', 'value' => "**{$amount} {$currency}**", 'inline' => true],
-                    ['name' => 'Gateway', 'value' => (string)$gateway, 'inline' => true],
-                    ['name' => 'TrxID', 'value' => "`{$trxId}`", 'inline' => true],
-                    ['name' => 'Customer', 'value' => (string)$customerName, 'inline' => true],
-                    ['name' => 'Invoice ID', 'value' => "#{$invoiceId}", 'inline' => true]
-                ];
-                pp_send_discord("🎉 Payment Received - {$amount} {$currency}", "A new payment has been completed successfully on {$siteName}.", $fields, 3066993);
-            }
-
-            // Admin Alerts - WhatsApp
-            $waUrl = get_env('notification_whatsapp_api_url');
-            $waEvent = get_env('notification_event_admin_payment_success_whatsapp');
-            $adminPhone = get_env('notification_whatsapp_target_phone');
-            if (!empty($waUrl) && $waUrl !== '--' && !empty($adminPhone) && $adminPhone !== '--' && $waEvent !== 'no') {
-                $waMsg = "🎉 *Payment Received!*\n\n"
-                       . "Amount: {$amount} {$currency}\n"
-                       . "Gateway: {$gateway}\n"
-                       . "TrxID: {$trxId}\n"
-                       . "Customer: {$customerName}\n"
-                       . "Invoice: #{$invoiceId}\n"
-                       . "Time: " . date('d M Y, h:i A');
-                pp_send_whatsapp($adminPhone, $waMsg);
-            }
-
-            // Admin Alerts - Email (SMTP)
-            $smtpHost = get_env('notification_email_smtp_host');
-            $emEvent = get_env('notification_event_admin_payment_success_email');
-            if (!empty($smtpHost) && $smtpHost !== '--' && $emEvent !== 'no') {
-                $adminEmail = get_env('notification_email_admin_recipients');
-                if (empty($adminEmail) || $adminEmail === '--') {
-                    $adminEmail = get_env('notification_email_smtp_user');
-                }
-                if (!empty($adminEmail) && $adminEmail !== '--') {
-                    $emails = array_map('trim', explode(',', $adminEmail));
-                    $subject = "🎉 Payment Received: {$amount} {$currency} (TrxID: {$trxId})";
-                    $html = "
-                    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
-                        <h2 style='color: #2fb344; margin-top: 0;'>🎉 Payment Received Successfully</h2>
-                        <p>A new payment has been processed on <strong>{$siteName}</strong>.</p>
-                        <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
-                            <tr style='border-bottom: 1px solid #eee;'><td style='padding: 8px 0; color: #666;'>Amount:</td><td style='padding: 8px 0; font-weight: bold; font-size: 16px;'>{$amount} {$currency}</td></tr>
-                            <tr style='border-bottom: 1px solid #eee;'><td style='padding: 8px 0; color: #666;'>Payment Method:</td><td style='padding: 8px 0;'>{$gateway}</td></tr>
-                            <tr style='border-bottom: 1px solid #eee;'><td style='padding: 8px 0; color: #666;'>Transaction ID:</td><td style='padding: 8px 0; font-family: monospace;'>{$trxId}</td></tr>
-                            <tr style='border-bottom: 1px solid #eee;'><td style='padding: 8px 0; color: #666;'>Customer Name:</td><td style='padding: 8px 0;'>{$customerName}</td></tr>
-                            <tr style='border-bottom: 1px solid #eee;'><td style='padding: 8px 0; color: #666;'>Invoice Number:</td><td style='padding: 8px 0;'>#{$invoiceId}</td></tr>
-                            <tr><td style='padding: 8px 0; color: #666;'>Date:</td><td style='padding: 8px 0;'>" . date('d M Y, h:i A') . "</td></tr>
-                        </table>
-                        <hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;'>
-                        <p style='color: #888; font-size: 12px; margin-bottom: 0;'>This is an automated notification from {$siteName}.</p>
-                    </div>";
-                    foreach ($emails as $em) {
-                        if (filter_var($em, FILTER_VALIDATE_EMAIL)) {
-                            pp_send_email($em, $subject, $html);
-                        }
-                    }
-                }
-            }
-
-            // Customer Alerts - Email
-            if (!empty($customerEmail) && filter_var($customerEmail, FILTER_VALIDATE_EMAIL) && get_env('notification_event_customer_payment_success_email') !== 'no') {
-                $subject = "Payment Receipt: {$amount} {$currency} - {$siteName}";
-                $html = "
-                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff;'>
-                    <div style='text-align: center; margin-bottom: 20px;'>
-                        <h2 style='color: #16a34a; margin: 0;'>Payment Receipt</h2>
-                        <p style='color: #6b7280; font-size: 14px; margin-top: 5px;'>Thank you for your payment!</p>
-                    </div>
-                    <div style='background: #f9fafb; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;'>
-                        <div style='font-size: 28px; font-weight: bold; color: #111827; text-align: center;'>{$amount} {$currency}</div>
-                        <div style='text-align: center; color: #16a34a; font-size: 14px; font-weight: 500; margin-top: 4px;'>✓ Completed</div>
-                    </div>
-                    <table style='width: 100%; border-collapse: collapse; font-size: 14px;'>
-                        <tr style='border-bottom: 1px solid #f3f4f6;'><td style='padding: 10px 0; color: #6b7280;'>Transaction ID</td><td style='padding: 10px 0; text-align: right; font-family: monospace; font-weight: bold;'>{$trxId}</td></tr>
-                        <tr style='border-bottom: 1px solid #f3f4f6;'><td style='padding: 10px 0; color: #6b7280;'>Payment Method</td><td style='padding: 10px 0; text-align: right;'>{$gateway}</td></tr>
-                        <tr style='border-bottom: 1px solid #f3f4f6;'><td style='padding: 10px 0; color: #6b7280;'>Invoice No.</td><td style='padding: 10px 0; text-align: right;'>#{$invoiceId}</td></tr>
-                        <tr><td style='padding: 10px 0; color: #6b7280;'>Date & Time</td><td style='padding: 10px 0; text-align: right;'>" . date('d M Y, h:i A') . "</td></tr>
-                    </table>
-                    <hr style='border: none; border-top: 1px solid #e5e7eb; margin: 25px 0;'>
-                    <p style='color: #9ca3af; font-size: 12px; text-align: center; margin: 0;'>If you have any questions, please contact support.</p>
-                </div>";
-                pp_send_email($customerEmail, $subject, $html);
-            }
-
-            // Customer Alerts - SMS
-            $smsUrl = get_env('notification_sms_api_url');
-            if (!empty($smsUrl) && $smsUrl !== '--' && !empty($customerPhone) && get_env('notification_event_customer_payment_success_sms') !== 'no') {
-                $smsMsg = "Thank you! Your payment of {$amount} {$currency} via {$gateway} (TrxID: {$trxId}) is successful. - {$siteName}";
-                pp_send_sms($customerPhone, $smsMsg);
-            }
-        }
-
-        // 2. Payment Failed Event
-        if ($event === 'payment.failed') {
-            $reason = $data['reason'] ?? 'Payment cancelled or verification failed.';
-
-            $tgToken = get_env('notification_telegram_token');
-            $tgChat = get_env('notification_telegram_chat_id');
-            if (!empty($tgToken) && $tgToken !== '--' && !empty($tgChat) && $tgChat !== '--' && get_env('notification_event_admin_payment_failed_telegram') === 'yes') {
-                $tgMsg = "❌ <b>Payment Failed / Cancelled</b>\n\n"
-                       . "💰 <b>Amount:</b> {$amount} {$currency}\n"
-                       . "💳 <b>Gateway:</b> {$gateway}\n"
-                       . "👤 <b>Customer:</b> {$customerName}\n"
-                       . "⚠️ <b>Reason:</b> {$reason}\n"
-                       . "⏰ <b>Time:</b> " . date('d M Y, h:i A');
-                pp_send_telegram($tgMsg);
-            }
-
-            $dcWebhook = get_env('notification_discord_webhook');
-            if (!empty($dcWebhook) && $dcWebhook !== '--' && get_env('notification_event_admin_payment_failed_discord') === 'yes') {
-                $fields = [
-                    ['name' => 'Amount', 'value' => "{$amount} {$currency}", 'inline' => true],
-                    ['name' => 'Gateway', 'value' => (string)$gateway, 'inline' => true],
-                    ['name' => 'Customer', 'value' => (string)$customerName, 'inline' => true],
-                    ['name' => 'Reason', 'value' => (string)$reason, 'inline' => false]
-                ];
-                pp_send_discord("❌ Payment Failed", "A payment attempt was cancelled or failed.", $fields, 15158332);
-            }
-        }
-
-        // 3. Device Offline Event
-        if ($event === 'device.offline') {
-            $deviceName = $data['device_name'] ?? 'Companion Phone';
-            $deviceId = $data['device_id'] ?? 'N/A';
-            $simSlot = $data['sim_slot'] ?? 'SIM 1';
-            $lastSeen = $data['last_seen'] ?? date('d M Y, h:i A');
-
-            $tgToken = get_env('notification_telegram_token');
-            $tgChat = get_env('notification_telegram_chat_id');
-            if (!empty($tgToken) && $tgToken !== '--' && !empty($tgChat) && $tgChat !== '--' && get_env('notification_event_device_offline_telegram') !== 'no') {
-                $tgMsg = "🚨 <b>DEVICE OFFLINE ALERT!</b>\n\n"
-                       . "📱 <b>Device:</b> {$deviceName}\n"
-                       . "🆔 <b>Device ID:</b> <code>{$deviceId}</code>\n"
-                       . "📶 <b>SIM Slot:</b> {$simSlot}\n"
-                       . "⏳ <b>Last Seen:</b> {$lastSeen}\n\n"
-                       . "⚠️ <i>Please check your companion phone network, battery or app state immediately!</i>";
-                pp_send_telegram($tgMsg);
-            }
-
-            $dcWebhook = get_env('notification_discord_webhook');
-            if (!empty($dcWebhook) && $dcWebhook !== '--' && get_env('notification_event_device_offline_discord') !== 'no') {
-                $fields = [
-                    ['name' => 'Device Name', 'value' => $deviceName, 'inline' => true],
-                    ['name' => 'SIM Slot', 'value' => $simSlot, 'inline' => true],
-                    ['name' => 'Last Seen', 'value' => $lastSeen, 'inline' => true]
-                ];
-                pp_send_discord("🚨 Companion Device Offline", "Device `{$deviceId}` is no longer responding. SMS sync is paused.", $fields, 15105570);
-            }
-
-            $waUrl = get_env('notification_whatsapp_api_url');
-            $adminPhone = get_env('notification_whatsapp_target_phone');
-            if (!empty($waUrl) && $waUrl !== '--' && !empty($adminPhone) && $adminPhone !== '--' && get_env('notification_event_device_offline_whatsapp') !== 'no') {
-                $waMsg = "🚨 *DEVICE OFFLINE ALERT!*\n\n"
-                       . "Device: {$deviceName}\n"
-                       . "SIM: {$simSlot}\n"
-                       . "Last Seen: {$lastSeen}\n"
-                       . "Please check phone app!";
-                pp_send_whatsapp($adminPhone, $waMsg);
-            }
-        }
-
-        // 4. Device Low Battery Event
-        if ($event === 'device.low_battery') {
-            $deviceName = $data['device_name'] ?? 'Companion Phone';
-            $batteryLevel = $data['battery_level'] ?? '10%';
-
-            $tgToken = get_env('notification_telegram_token');
-            $tgChat = get_env('notification_telegram_chat_id');
-            if (!empty($tgToken) && $tgToken !== '--' && !empty($tgChat) && $tgChat !== '--' && get_env('notification_event_device_battery_telegram') !== 'no') {
-                $tgMsg = "🪫 <b>Low Battery Alert!</b>\n\n"
-                       . "📱 <b>Device:</b> {$deviceName}\n"
-                       . "🔋 <b>Battery Level:</b> {$batteryLevel}\n"
-                       . "⚠️ Please plug in your companion phone charger to prevent payment interruptions.";
-                pp_send_telegram($tgMsg);
-            }
-
-            $dcWebhook = get_env('notification_discord_webhook');
-            if (!empty($dcWebhook) && $dcWebhook !== '--' && get_env('notification_event_device_battery_discord') !== 'no') {
-                $fields = [
-                    ['name' => 'Device', 'value' => $deviceName, 'inline' => true],
-                    ['name' => 'Battery Level', 'value' => "**{$batteryLevel}**", 'inline' => true]
-                ];
-                pp_send_discord("🪫 Low Battery Warning", "Companion phone battery is running critically low.", $fields, 16753920);
-            }
-        }
-    }
-
-    // Register Automatic Multi-Channel Notification Hook for Transaction Events
-    add_action('transactions.updated', function ($transactions) {
-        if (empty($transactions) || !is_array($transactions)) {
-            return;
-        }
-
-        foreach ($transactions as $trx) {
-            $status = strtolower($trx['status'] ?? '');
-            if ($status === 'completed' || $status === 'successful' || $status === 'success') {
-                pp_dispatch_notification('payment.success', [
-                    'amount'         => $trx['amount'] ?? ($trx['total'] ?? '0.00'),
-                    'currency'       => $trx['currency'] ?? 'BDT',
-                    'gateway'        => $trx['gateway'] ?? 'Payment Gateway',
-                    'trx_id'         => $trx['transaction_id'] ?? ($trx['pp_id'] ?? 'N/A'),
-                    'invoice_id'     => $trx['pp_id'] ?? 'N/A',
-                    'customer_name'  => $trx['full_name'] ?? 'Customer',
-                    'customer_email' => $trx['email_address'] ?? '',
-                    'customer_phone' => $trx['mobile_number'] ?? ($trx['sender'] ?? '')
-                ]);
-            } elseif ($status === 'canceled' || $status === 'cancelled' || $status === 'failed') {
-                pp_dispatch_notification('payment.failed', [
-                    'amount'         => $trx['amount'] ?? ($trx['total'] ?? '0.00'),
-                    'currency'       => $trx['currency'] ?? 'BDT',
-                    'gateway'        => $trx['gateway'] ?? 'Payment Gateway',
-                    'trx_id'         => $trx['transaction_id'] ?? ($trx['pp_id'] ?? 'N/A'),
-                    'invoice_id'     => $trx['pp_id'] ?? 'N/A',
-                    'customer_name'  => $trx['full_name'] ?? 'Customer',
-                    'customer_email' => $trx['email_address'] ?? '',
-                    'customer_phone' => $trx['mobile_number'] ?? ($trx['sender'] ?? ''),
-                    'reason'         => 'Transaction was ' . $status
-                ]);
-            }
-        }
-    });
-
-    /**
-     * Automatic maintenance cleanup routine for old SMS data (keeps database light and fast)
-     */
-    function pp_cleanup_old_sms_data(int $daysToKeep = 30): int {
-        global $db_prefix;
-        try {
-            $cutoffDate = date('Y-m-d H:i:s', strtotime("-{$daysToKeep} days"));
-            $params = [':cutoff' => $cutoffDate];
-            $res = deleteData($db_prefix . 'sms_data', 'WHERE status = "approved" AND created_date < :cutoff', $params);
-            $parsed = json_decode($res, true);
-            return (int)($parsed['affected_rows'] ?? 0);
-        } catch (\Throwable $e) {
-            error_log('SMS Cleanup error: ' . $e->getMessage());
-            return 0;
-        }
-    }
-    // Auto-trigger lightweight cleanup check once daily
-    if (rand(1, 100) === 1) {
-        pp_cleanup_old_sms_data(30);
-    }
-
 

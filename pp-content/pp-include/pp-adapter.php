@@ -4,27 +4,17 @@
     error_reporting(E_ALL);
     ini_set('display_errors', 0);
 
+    ob_start(); // catch ALL output from includes — BNQR must return clean JSON
+
     if (!defined('PipraPay_INIT')) {
         http_response_code(403);
         exit('Direct access not allowed');
     }
 
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+    session_start();
 
     if (date_default_timezone_get() !== 'UTC') {
         date_default_timezone_set('UTC');
-    }
-
-    if (empty($_POST) && (isset($_SERVER['REQUEST_METHOD']) && strtoupper($_SERVER['REQUEST_METHOD']) === 'POST')) {
-        $rawInput = file_get_contents('php://input');
-        if (!empty($rawInput)) {
-            $parsedJson = json_decode($rawInput, true);
-            if (is_array($parsedJson)) {
-                $_POST = $parsedJson;
-            }
-        }
     }
 
     $phpVersion = PHP_VERSION;
@@ -134,7 +124,6 @@
     $path_invoice = 'invoice';
     $path_payment_link = 'payment-link';
     $path_admin = 'admin';
-    $path_login = 'login';
     $path_cron = 'cron';
     $path_homepageRedirect = '';
 
@@ -176,7 +165,6 @@
             $path_invoice = ($value = get_env('geneal-application-settings-invoicePath')) && $value !== '--' ? $value : 'invoice';
             $path_payment_link = ($value = get_env('geneal-application-settings-paymentLinkPath')) && $value !== '--' ? $value : 'payment-link';
             $path_admin = ($value = get_env('geneal-application-settings-adminPath')) && $value !== '--' ? $value : 'admin';
-            $path_login = ($value = get_env('geneal-application-settings-loginPath')) && $value !== '--' ? $value : 'login';
             $path_cron = ($value = get_env('geneal-application-settings-cronPath')) && $value !== '--' ? $value : 'cron';
             $path_homepageRedirect = ($value = get_env('geneal-application-settings-homepageRedirect')) && $value !== '--' ? $value : '';
 
@@ -229,7 +217,7 @@
     }
 
     if(file_exists(__DIR__ . '/../../pp-media/sdk/fpdf/fpdf.php')){
-        require_once __DIR__ . '/../../pp-media/sdk/fpdf/fpdf.php';
+        require __DIR__ . '/../../pp-media/sdk/fpdf/fpdf.php';
     }else{
         http_response_code(403);
         exit('SDK Missing');
@@ -238,8 +226,8 @@
     $pp_adapter_loaded = true;
 
     $piprapay_current_version = [
-        'version_name' => 'v3.0.13',
-        'version_code' => '3.0.13',
+        'version_name' => 'v3.0.0-beta',
+        'version_code' => '3.0.0',
         'version_hash' => '6b6f7c62e34e3680398387720dbd44a036d1a574860d5f90a3bd5d9b6280bea1
 c9515853f1fbf61175dd3dbce6eb011e4cf29fc43949ed4b562f6421b88c8773
 c0dc07a71b29a9da279310f2247affb16089334cc3da60fa0b4b4f06f78594cb
@@ -250,21 +238,20 @@ c0dc07a71b29a9da279310f2247affb16089334cc3da60fa0b4b4f06f78594cb
 46cc094590e12b359b3f8c429b75c7771164d64b4ee77c3783b304a6757f1dcb
 aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
 09a03d6d70021d1c0dd64cefd6e400b18d0e43d00d821b8f52e2e9370908779e',
-        'version_channel' => 'stable'
+        'version_channel' => 'beta'
     ];
 
     $piprapay_favicon= 'https://piprapay.com/assets/images/favicon.png';
     $piprapay_logo_light = 'https://cdn.piprapay.com/media/logo.png';
 
-    $baseDir = trim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
-    $directory = $baseDir !== '' ? $baseDir . '/' : '';
+    $directory = (pp_site_url('fulldomain') == 'http://localhost') ? 'piprapay-panel/' : '';
     $site_url = pp_site_url('fulldomain').'/'.$directory;
 
     if(isset($_GET['logout'])){
         logoutCookie();
 ?>
         <script>
-           location.href = '<?php echo $site_url.$path_login; ?>';
+           location.href = '<?php echo $site_url.'login'?>';
         </script>
 <?php
     }
@@ -416,83 +403,36 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
         }
     }
 
-    if (isset($_GET['action']) && $_GET['action'] === 'system-settings-update-backup-download') {
-        if ($global_user_login == true) {
-            if (!canAccessPage(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', $global_user_response['response'][0]['role']) ||
-                !hasPermission(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', 'manage_update', $global_user_response['response'][0]['role'])) {
-                http_response_code(403);
-                exit('Access denied');
-            }
-            $fileName = isset($_GET['file']) ? basename(trim($_GET['file'])) : '';
-            $targetFile = __DIR__ . '/../../pp-media/storage/backup/' . $fileName;
-
-            if (!empty($fileName) && file_exists($targetFile) && (str_ends_with($fileName, '.zip') || str_ends_with($fileName, '.sql'))) {
-                if (ob_get_level()) {
-                    ob_end_clean();
-                }
-                header('Content-Description: File Transfer');
-                header('Content-Type: application/octet-stream');
-                header('Content-Disposition: attachment; filename="' . $fileName . '"');
-                header('Expires: 0');
-                header('Cache-Control: must-revalidate');
-                header('Pragma: public');
-                header('Content-Length: ' . filesize($targetFile));
-                readfile($targetFile);
-                exit;
-            } else {
-                http_response_code(404);
-                exit('Backup file not found.');
-            }
-        } else {
-            http_response_code(403);
-            exit('Please log in to download backups.');
-        }
-    }
-
-    if (empty($_POST) && !empty($_SERVER['CONTENT_TYPE']) && stripos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
-        $rawJsonBody = file_get_contents('php://input');
-        if (!empty($rawJsonBody)) {
-            $parsedJsonBody = json_decode($rawJsonBody, true);
-            if (is_array($parsedJsonBody)) {
-                $_POST = $parsedJsonBody;
-            }
-        }
-    }
-
-    if (isset($_POST['action-v2']) && !isset($_POST['csrf_token'])) {
-        unset($_POST['action']);
-    }
-
-    if (isset($_POST['action-companion']) 
-        || (isset($_POST['onetimepassword']) && !isset($_POST['csrf_token']))
-        || (isset($_POST['otp']) && !isset($_POST['csrf_token']))
-        || (isset($_POST['action']) && in_array($_POST['action'], ['login', 'companion-login', 'account-information', 'sms-transmit-bulk', 'sms-transmit-sender', 'delete-sms-data']) && !isset($_POST['csrf_token']) && (isset($_POST['token']) || isset($_POST['onetimepassword']) || isset($_POST['otp']) || isset($_POST['app_version']) || isset($_POST['sms_list']) || isset($_POST['model'])))
-    ) {
-        if (!isset($_POST['action-companion'])) {
-            $compAction = $_POST['action'] ?? 'login';
-            if ($compAction === 'companion-login') $compAction = 'login';
-            $_POST['action-companion'] = $compAction;
-        }
-        unset($_POST['action']);
-    }
-
     if(isset($_POST['action'])){
         $action = escape_string($_POST['action'] ?? '');
         $pp_app_token = escape_string($_POST['pp-token'] ?? '');
 
+        // BNQR gateway actions - bypass CSRF (public-facing)
+        if (in_array($action, ['bnqr-verify', 'bnqr-poll', 'bnqr-cancel', 'bnqr-free-slot'])) {
+            $bnqrFile = __DIR__ . '/../pp-modules/pp-gateways/bangla-qr/bangla-qr.php';
+            if (file_exists($bnqrFile)) {
+                while (ob_get_level()) ob_end_clean();
+                ob_start();
+                require_once $bnqrFile;
+                if ($action === 'bnqr-verify') $result = bnqr_handle_verify();
+                elseif ($action === 'bnqr-poll') $result = bnqr_handle_poll();
+                elseif ($action === 'bnqr-cancel') $result = bnqr_handle_cancel();
+                elseif ($action === 'bnqr-free-slot') $result = bnqr_handle_free_slot();
+                ob_end_clean();
+                header('Content-Type: application/json; charset=utf-8');
+                echo $result;
+                exit();
+            }
+        }
+
         if($action == ""){
             echo json_encode(['status' => "false", 'title' => 'Oops! Something went wrong', 'message' => 'Your request could not be processed. Please try again.']);
         }else{
-            if ($action === 'payment-link-process' || $action === 'invoice-process') {
-                // Public payment links & invoices bypass admin session CSRF token
-                $new_csrf_token = '';
-            } else if($pp_app_token == ''){
-                if (empty($_SESSION['csrf_token'])) {
+            if($pp_app_token == ''){
+                if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
                     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-                }
-                $new_csrf_token = $_SESSION['csrf_token'];
+                    $new_csrf_token = $_SESSION['csrf_token'];
 
-                if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], (string)$_POST['csrf_token'])) {
                     echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request token' , 'csrf_token' => $new_csrf_token]);
                     exit;
                 }
@@ -629,20 +569,16 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                         $target = $path_admin."/dashboard";
                                     }
 
-                                    $new_hashed_password = password_hash($password, PASSWORD_BCRYPT);
-                                    $columns = ['password', 'temp_password', 'reset_limit', 'updated_date'];
-                                    $values = [$new_hashed_password, '--', 3, getCurrentDatetime('Y-m-d H:i:s')];
-
                                     if($response['response'][0]['2fa_secret'] == '--' || $response['response'][0]['2fa_secret'] == ''){
                                         $ga = new PHPGangsta_GoogleAuthenticator();
                                         $secret = $ga->createSecret();
 
-                                        $columns[] = '2fa_secret';
-                                        $values[] = $secret;
+                                        $columns = ['2fa_secret'];
+                                        $values = [$secret];
+                                        $condition = "id = '".$response['response'][0]['id']."'"; 
+                                        
+                                        updateData($db_prefix.'admin', $columns, $values, $condition);
                                     }
-                                    $condition = "id = '".$response['response'][0]['id']."'"; 
-                                    
-                                    updateData($db_prefix.'admin', $columns, $values, $condition);
                                     
                                     $columns = ['a_id', 'cookie', 'browser', 'device', 'ip', 'created_date', 'updated_date'];
                                     $values = [$response['response'][0]['a_id'], $cookie, $userInfo['browser'], $userInfo['device'], $userInfo['ip_address'], getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
@@ -4741,37 +4677,17 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         exit();
                     }
 
-                    $homepageRedirect = trim(escape_string($_POST['homepageRedirect'] ?? ''));
-                    $adminPath = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', escape_string($_POST['adminPath'] ?? ''))));
-                    if (empty($adminPath)) {
-                        $adminPath = 'admin';
-                    }
-                    $loginPath = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', escape_string($_POST['loginPath'] ?? ''))));
-                    if (empty($loginPath)) {
-                        $loginPath = 'login';
-                    }
-                    $invoicePath = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', escape_string($_POST['invoicePath'] ?? ''))));
-                    if (empty($invoicePath)) {
-                        $invoicePath = 'invoice';
-                    }
-                    $paymentLinkPath = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', escape_string($_POST['paymentLinkPath'] ?? ''))));
-                    if (empty($paymentLinkPath)) {
-                        $paymentLinkPath = 'payment-link';
-                    }
-                    $paymentPath = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', escape_string($_POST['paymentPath'] ?? ''))));
-                    if (empty($paymentPath)) {
-                        $paymentPath = 'payment';
-                    }
-                    $cronPath = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', escape_string($_POST['cronPath'] ?? ''))));
-                    if (empty($cronPath)) {
-                        $cronPath = 'cron';
-                    }
+                    $homepageRedirect = escape_string($_POST['homepageRedirect'] ?? '');
+                    $adminPath = escape_string($_POST['adminPath'] ?? '');
+                    $invoicePath = escape_string($_POST['invoicePath'] ?? '');
+                    $paymentLinkPath = escape_string($_POST['paymentLinkPath'] ?? '');
+                    $paymentPath = escape_string($_POST['paymentPath'] ?? '');
+                    $cronPath = escape_string($_POST['cronPath'] ?? '');
                     $default_timezone = escape_string($_POST['default_timezone'] ?? '');
                     $webhook_attempts_limit = escape_string($_POST['webhook_attempts_limit'] ?? '');
 
                     set_env('geneal-application-settings-homepageRedirect', $homepageRedirect);
                     set_env('geneal-application-settings-adminPath', $adminPath);
-                    set_env('geneal-application-settings-loginPath', $loginPath);
                     set_env('geneal-application-settings-invoicePath', $invoicePath);
                     set_env('geneal-application-settings-paymentLinkPath', $paymentLinkPath);
                     set_env('geneal-application-settings-paymentPath', $paymentPath);
@@ -4779,7 +4695,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                     set_env('geneal-application-settings-default_timezone', $default_timezone);
                     set_env('geneal-application-settings-webhook_attempts_limit', $webhook_attempts_limit);
 
-                    echo json_encode(['status' => 'true', 'title' => 'Settings Updated', 'message' => 'The application settings has been updated successfully.', 'new_admin_path' => $adminPath, 'new_login_path' => $loginPath, 'csrf_token' => $new_csrf_token]);
+                    echo json_encode(['status' => 'true', 'title' => 'Settings Updated', 'message' => 'The application settings has been updated successfully.', 'csrf_token' => $new_csrf_token]);
                 }else{
                     echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
                 }
@@ -5139,7 +5055,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
 
                             insertData($db_prefix.'api', $columns, $values);
 
-                            echo json_encode(['status' => 'true', 'title' => 'API Created', 'message' => 'The API key has been created successfully.', 'csrf_token' => $new_csrf_token]);
+                            echo json_encode(['status' => 'true', 'title' => 'Api Created', 'message' => 'The api has been created successfully.', 'csrf_token' => $new_csrf_token]);
                         }
                     }
                 }else{
@@ -5364,9 +5280,9 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                             }
                         }
 
-                        echo json_encode(['status' => 'true', 'title' => 'API Key '.$actionID, 'message' => 'The selected API keys have been '.$actionID.' successfully.', 'csrf_token' => $new_csrf_token]);
+                        echo json_encode(['status' => 'true', 'title' => 'Api Key '.$actionID, 'message' => 'The selected api key have been '.$actionID.' successfully.', 'csrf_token' => $new_csrf_token]);
                     } else {
-                        echo json_encode(['status' => 'false', 'title' => 'API Key Failed', 'message' => 'No API key selected.' , 'csrf_token' => $new_csrf_token]);
+                        echo json_encode(['status' => 'false', 'title' => 'Api Key Failed', 'message' => 'No api selected.' , 'csrf_token' => $new_csrf_token]);
                     }
                 }else{
                     echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
@@ -5399,7 +5315,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         deleteData($db_prefix.'api', $condition);
                     }
 
-                    echo json_encode(['status' => 'true', 'title' => 'API Key Deleted', 'message' => 'The selected API key has been deleted successfully.', 'csrf_token' => $new_csrf_token]);
+                    echo json_encode(['status' => 'true', 'title' => 'Api Key Deleted', 'message' => 'The selected api key have been deleted successfully.', 'csrf_token' => $new_csrf_token]);
                 }else{
                     echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
                 }
@@ -5464,7 +5380,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                             
                             updateData($db_prefix.'api', $columns, $values, $condition);
 
-                            echo json_encode(['status' => 'true', 'title' => 'API Updated', 'message' => 'The API key has been updated successfully.', 'csrf_token' => $new_csrf_token]);
+                            echo json_encode(['status' => 'true', 'title' => 'Api Updated', 'message' => 'The api has been updated successfully.', 'csrf_token' => $new_csrf_token]);
                         }else{
                             echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
                         }
@@ -5611,15 +5527,11 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         $response = [];
 
                         foreach($response_result['response'] as $row){
-                            $devName = (!empty($row['name']) && $row['name'] !== '--') ? $row['name'] : ((!empty($row['model']) && $row['model'] !== '--') ? $row['model'] : 'Android Device');
-                            $devModel = (!empty($row['model']) && $row['model'] !== '--') ? $row['model'] : 'Smartphone';
-                            $devAndroid = (!empty($row['android_level']) && $row['android_level'] !== '--') ? $row['android_level'] : 'Android';
-
                             $response[] = [
                                 "id"   => $row['device_id'],
-                                "name"   => $devName,
-                                "model"   => $devModel,
-                                "android_level"   => $devAndroid,
+                                "name"   => $row['name'],
+                                "model"   => $row['model'],
+                                "android_level"   => $row['android_level'],
                                 "status"   => $row['status'],
                                 "created_date"     => convertUTCtoUserTZ($row['created_date'], ($global_response_brand['response'][0]['timezone'] === '--' || $global_response_brand['response'][0]['timezone'] === '') ? 'Asia/Dhaka' : $global_response_brand['response'][0]['timezone'], "M d, Y h:i A"),
                                 "updated_date"     => convertUTCtoUserTZ($row['updated_date'], ($global_response_brand['response'][0]['timezone'] === '--' || $global_response_brand['response'][0]['timezone'] === '') ? 'Asia/Dhaka' : $global_response_brand['response'][0]['timezone'], "M d, Y h:i A"),
@@ -5761,129 +5673,29 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         exit();
                     }
 
-                    $adminIdentifier = !empty($global_user_response['response'][0]['a_id']) ? $global_user_response['response'][0]['a_id'] : $pp_admin;
                     $otp = generateItemID();
 
-                    $response_brand = json_decode(getData($db_prefix.'device','WHERE status = "processing" AND (d_id = "'.$pp_admin.'" OR d_id = "'.$adminIdentifier.'") ORDER BY id DESC LIMIT 1'),true);
+                    $response_brand = json_decode(getData($db_prefix.'device','WHERE status = "processing" AND d_id = "'.$pp_admin.'"'),true);
                     if($response_brand['status'] == true){
-                        $device_id = $response_brand['response'][0]['device_id'];
-                        $columns = ['otp', 'd_id', 'updated_date'];
-                        $values = [$otp, $adminIdentifier, getCurrentDatetime('Y-m-d H:i:s')];
+                        $columns = ['otp', 'updated_date'];
+                        $values = [$otp, getCurrentDatetime('Y-m-d H:i:s')];
                         $condition = "id = '".$response_brand['response'][0]['id']."'"; 
                         
                         updateData($db_prefix.'device', $columns, $values, $condition);
 
-                        echo json_encode(['status' => 'true', 'otp' => $otp, 'device_id' => $device_id, 'csrf_token' => $new_csrf_token]);
+                        echo json_encode(['status' => 'true', 'otp' => $otp, 'csrf_token' => $new_csrf_token]);
                     }else{
                         $device_id = generateItemID();
 
-                        $columns = ['d_id', 'device_id', 'otp', 'status', 'created_date', 'updated_date'];
-                        $values = [$adminIdentifier, $device_id, $otp, 'processing', getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
+                        $columns = ['d_id', 'device_id', 'otp', 'created_date', 'updated_date'];
+                        $values = [$pp_admin, $device_id, $otp, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
 
                         insertData($db_prefix.'device', $columns, $values);
 
-                        echo json_encode(['status' => 'true', 'otp' => $otp, 'device_id' => $device_id, 'csrf_token' => $new_csrf_token]);
+                        echo json_encode(['status' => 'true', 'otp' => $otp, 'csrf_token' => $new_csrf_token]);
                     }
                 }else{
                     echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
-            if($action == "device-connect-status"){
-                if($global_user_login == true){
-                    $device_id = escape_string($_POST['device_id'] ?? '');
-                    if($device_id !== ''){
-                        $params = [':device_id' => $device_id];
-                        $response_device = json_decode(getData($db_prefix.'device', 'WHERE device_id = :device_id', '* FROM', $params), true);
-                        if($response_device['status'] == true && $response_device['response'][0]['status'] == 'used'){
-                            echo json_encode([
-                                'status' => 'true',
-                                'connected' => true,
-                                'device_name' => $response_device['response'][0]['name'] ?? '',
-                                'model' => $response_device['response'][0]['model'] ?? '',
-                                'csrf_token' => $new_csrf_token
-                            ]);
-                            exit();
-                        }
-                    }
-
-                    $adminIdentifier = !empty($global_user_response['response'][0]['a_id']) ? $global_user_response['response'][0]['a_id'] : $pp_admin;
-                    $fallbackDevice = json_decode(getData($db_prefix.'device', 'WHERE status = "used" AND (d_id = "'.$pp_admin.'" OR d_id = "'.$adminIdentifier.'") AND updated_date >= (NOW() - INTERVAL 180 SECOND) ORDER BY updated_date DESC LIMIT 1'), true);
-                    if ($fallbackDevice['status'] == true && !empty($fallbackDevice['response'])) {
-                        echo json_encode([
-                            'status' => 'true',
-                            'connected' => true,
-                            'device_name' => $fallbackDevice['response'][0]['name'] ?? '',
-                            'model' => $fallbackDevice['response'][0]['model'] ?? '',
-                            'csrf_token' => $new_csrf_token
-                        ]);
-                        exit();
-                    }
-
-                    // Also check ANY recently connected device in the system
-                    $anyRecentDevice = json_decode(getData($db_prefix.'device', 'WHERE status = "used" AND updated_date >= (NOW() - INTERVAL 180 SECOND) ORDER BY updated_date DESC LIMIT 1'), true);
-                    if ($anyRecentDevice['status'] == true && !empty($anyRecentDevice['response'])) {
-                        echo json_encode([
-                            'status' => 'true',
-                            'connected' => true,
-                            'device_name' => $anyRecentDevice['response'][0]['name'] ?? '',
-                            'model' => $anyRecentDevice['response'][0]['model'] ?? '',
-                            'csrf_token' => $new_csrf_token
-                        ]);
-                        exit();
-                    }
-
-                    echo json_encode(['status' => 'true', 'connected' => false, 'csrf_token' => $new_csrf_token]);
-                }else{
-                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
-            if($action == "device-edit-info"){
-                if($global_user_login == true){
-                    $device_id = escape_string($_POST['device_id'] ?? $_POST['ItemID'] ?? '');
-                    if($device_id !== ''){
-                        $res = json_decode(getData($db_prefix.'device', 'WHERE device_id = :did LIMIT 1', '* FROM', [':did' => $device_id]), true);
-                        if(!empty($res['status']) && !empty($res['response'][0])){
-                            $dev = $res['response'][0];
-                            echo json_encode([
-                                'status' => 'true',
-                                'device_id' => $dev['device_id'],
-                                'name' => $dev['name'],
-                                'model' => $dev['model'],
-                                'android_level' => $dev['android_level'],
-                                'csrf_token' => $new_csrf_token
-                            ]);
-                            exit();
-                        }
-                    }
-                    echo json_encode(['status' => 'false', 'title' => 'Device Not Found', 'message' => 'The selected device could not be found.', 'csrf_token' => $new_csrf_token]);
-                } else {
-                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request', 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
-            if($action == "device-edit"){
-                if($global_user_login == true){
-                    $device_id = escape_string($_POST['device_id'] ?? '');
-                    $name = escape_string(trim($_POST['name'] ?? ''));
-                    $model = escape_string(trim($_POST['model'] ?? ''));
-
-                    if($device_id !== '' && $name !== ''){
-                        $updateCols = ['name', 'updated_date'];
-                        $updateVals = [$name, getCurrentDatetime('Y-m-d H:i:s')];
-                        if ($model !== '') {
-                            $updateCols[] = 'model';
-                            $updateVals[] = $model;
-                        }
-                        updateData($db_prefix.'device', $updateCols, $updateVals, "device_id = '{$device_id}'");
-
-                        echo json_encode(['status' => 'true', 'title' => 'Device Updated', 'message' => 'Device details updated successfully.', 'csrf_token' => $new_csrf_token]);
-                    } else {
-                        echo json_encode(['status' => 'false', 'title' => 'Validation Error', 'message' => 'Device name is required.', 'csrf_token' => $new_csrf_token]);
-                    }
-                } else {
-                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request', 'csrf_token' => $new_csrf_token]);
                 }
             }
 
@@ -6339,25 +6151,10 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         $response = [];
 
                         foreach($response_result['response'] as $row){
-                            $device_name = '--';
-                            if (!empty($row['device_id']) && $row['device_id'] !== '--' && $row['device_id'] !== '00') {
-                                $response_device = json_decode(getData($db_prefix.'device',' WHERE device_id = "'.$row['device_id'].'"'),true);
-                                if($response_device['status'] == true && !empty($response_device['response'][0]['name']) && $response_device['response'][0]['name'] !== '--'){
-                                    $device_name = $response_device['response'][0]['name'];
-                                } elseif($response_device['status'] == true && !empty($response_device['response'][0]['model']) && $response_device['response'][0]['model'] !== '--'){
-                                    $device_name = $response_device['response'][0]['model'];
-                                }
-                            }
-
-                            if ($device_name === '--' || $device_name === '') {
-                                $latestDev = json_decode(getData($db_prefix.'device', 'WHERE status = "used" ORDER BY updated_date DESC, id DESC LIMIT 1'), true);
-                                if (!empty($latestDev['status']) && !empty($latestDev['response'][0]['name']) && $latestDev['response'][0]['name'] !== '--') {
-                                    $device_name = $latestDev['response'][0]['name'];
-                                } elseif (!empty($latestDev['status']) && !empty($latestDev['response'][0]['model']) && $latestDev['response'][0]['model'] !== '--') {
-                                    $device_name = $latestDev['response'][0]['model'];
-                                } else {
-                                    $device_name = 'Companion Device';
-                                }
+                            $device_name = '';
+                            $response_device = json_decode(getData($db_prefix.'device',' WHERE device_id = "'.$row['device_id'].'"'),true);
+                            if($response_device['status'] == true){
+                                $device_name = $response_device['response'][0]['name'];
                             }
 
                             $provider = senderWhitelist(null, $row['sender_key']);
@@ -6385,7 +6182,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                             ];
                         }
 
-                        $count_data = json_decode(getData($db_prefix.'sms_data',' WHERE '.$where_sql.' device_id NOT IN ("00") '.$error_exclusion.' '.$sql_query),true);
+                        $count_data = json_decode(getData($db_prefix.'sms_data',' WHERE '.$where_sql.' device_id NOT IN ("00") AND status NOT IN ("error") '.$sql_query),true);
 
 
                         $total_records = count($count_data['response'] ?? []);
@@ -6911,9 +6708,9 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                     }
 
                     $search_input = escape_string($_POST['search_input'] ?? '');
-                    $show_limit = escape_string($_POST['show_limit'] ?? 8);
+                    $show_limit = escape_string($_POST['show_limit'] ?? 5);
 
-                    $tabType = escape_string($_POST['tabType'] ?? 'all');
+                    $tabType = escape_string($_POST['tabType'] ?? '');
 
                     /* Filters */
                     $filter_status = escape_string($_POST['filter_status'] ?? '');
@@ -6922,7 +6719,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
 
                     $where = [];
 
-                    if (!empty($tabType) && $tabType !== "all") {
+                    if ($tabType !== "all") {
                         $where[] = "status = '{$tabType}'";
                     }
 
@@ -6934,7 +6731,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         $where[] = "created_date <= '{$filter_end} 23:59:59'";
                     }
 
-                    if (!empty($filter_status) && $filter_status !== 'all') {
+                    if ($filter_status !== '') {
                         $where[] = "status = '{$filter_status}'";
                     }
 
@@ -6942,17 +6739,17 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                     /* Filters */
 
                     $page = max(1, intval($_POST['page'] ?? 1));
-                    $show_limit = ($_POST['show_limit'] == '' || $_POST['show_limit'] == 'all') ? 999999 : intval($_POST['show_limit']);
+                    $show_limit = ($_POST['show_limit'] == '') ? 999999 : intval($_POST['show_limit']);
                     $offset = ($page - 1) * $show_limit;
 
                     $sql_query = '';
 
                     if ($search_input !== '') {
-                        $sql_query .= " AND ( ref LIKE '%$search_input%' OR customer_info LIKE '%$search_input%' OR trx_id LIKE '%$search_input%' OR amount LIKE '%$search_input%' )";
+                        $sql_query .= " AND ( customer_info LIKE '%$search_input%' OR trx_id LIKE '%$search_input%' OR gateway_slug LIKE '%$search_input%' OR sender LIKE '%$search_input%' )";
                     }
 
                     $sql_limit = '';
-                    if($show_limit == 999999){
+                    if($show_limit == 'all'){
 
                     }else{
                        $sql_limit = " LIMIT $offset, $show_limit";
@@ -7083,19 +6880,6 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                             $condition = "ref = '".$itemID."'"; 
                                             
                                             updateData($db_prefix.'transaction', $columns, $values, $condition);
-                                            $response_brand['response'][0]['status'] = 'completed';
-                                        }
-                                    }
-
-                                    if($actionID == "pending"){
-                                        if (hasPermission(json_decode($global_response_permission['response'][0]['permission'], true), 'transaction', 'edit', $global_user_response['response'][0]['role'])) {
-                                            $columns = ['status', 'updated_date'];
-                                            $values = ['pending', getCurrentDatetime('Y-m-d H:i:s')];
-
-                                            $condition = "ref = '".$itemID."'"; 
-                                            
-                                            updateData($db_prefix.'transaction', $columns, $values, $condition);
-                                            $response_brand['response'][0]['status'] = 'pending';
                                         }
                                     }
 
@@ -7180,7 +6964,6 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                             $condition = "ref = '".$itemID."'"; 
                                             
                                             updateData($db_prefix.'transaction', $columns, $values, $condition);
-                                            $response_brand['response'][0]['status'] = 'canceled';
                                         }
                                     }
 
@@ -7232,7 +7015,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                         }
                                     }
 
-                                    if($actionID == "refunded" || $actionID == "canceled" || $actionID == "approved" || $actionID == "pending"){
+                                    if($actionID == "refunded" || $actionID == "canceled" || $actionID == "approved"){
                                         $metadata = json_decode($response_brand['response'][0]['metadata'], true) ?: [];
 
                                         $response_gateway = json_decode(getData($db_prefix.'gateways',' WHERE brand_id ="'.$global_response_brand['response'][0]['brand_id'].'" AND gateway_id = "'.$response_brand['response'][0]['gateway_id'].'"'),true);
@@ -7425,32 +7208,6 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                 }
             }
 
-            if($action == "system-settings-sms-senders-save"){
-                if($global_user_login == true){
-                    if (!empty($pp_demo_mode)) {
-                        echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.', 'csrf_token' => $new_csrf_token]);
-                    } else {
-                        if (!canAccessPage(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', $global_user_response['response'][0]['role'])) {
-                            echo json_encode(['status' => 'false', 'title' => 'Access denied', 'message' => 'You need permission to perform this action. Please contact the admin.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        $sendersData = $_POST['senders'] ?? [];
-                        if (is_array($sendersData)) {
-                            foreach ($sendersData as $provKey => $senderStr) {
-                                $cleanKey = escape_string(trim($provKey));
-                                $cleanVal = escape_string(trim($senderStr));
-                                set_env('mfs_senders_' . $cleanKey, $cleanVal);
-                            }
-                        }
-
-                        echo json_encode(['status' => 'true', 'title' => 'SMS Senders Updated', 'message' => 'Allowed SMS senders and whitelist saved successfully.', 'csrf_token' => $new_csrf_token]);
-                    }
-                } else {
-                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request', 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
             if($action == "system-settings-update-check"){
                 if($global_user_login == true){
                     if (!empty($pp_demo_mode)) {
@@ -7468,12 +7225,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
 
                         set_env('last-auto-update-check', getCurrentDatetime('Y-m-d H:i:s'));
 
-                        $manifest = pp_fetch_update_manifest();
-
-                        if (!$manifest || !isset($manifest['channels'])) {
-                            echo json_encode(['status' => 'false', 'title' => 'Update Check Failed', 'message' => 'Unable to connect to GitHub update server. Please check your internet connection or try again later.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
+                        $manifest = json_decode(file_get_contents('https://updates.piprapay.com/manifest.json'), true);
 
                         $current_code = $piprapay_current_version['version_code'];
                         $current_name = $piprapay_current_version['version_name'];
@@ -7491,23 +7243,16 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         $latest_name = null;
                         $latest_code = null;
                         $latest_hash = null;
-                        $download_url = null;
 
                         if ($channel_data) {
-                            $latest_name = $channel_data['latest_version_name'] ?? $current_name;
-                            $latest_code = $channel_data['latest_version_code'] ?? $current_code;
-                            $download_url = $channel_data['download_url'] ?? "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip";
+                            $latest_name = $channel_data['latest_version_name'];
+                            $latest_code = $channel_data['latest_version_code'];
 
                             $latest_hash = '';
-                            if (isset($channel_data['versions']) && is_array($channel_data['versions'])) {
-                                foreach ($channel_data['versions'] as $version) {
-                                    if ($version['version_code'] === $latest_code) {
-                                        $latest_hash = $version['checksum'] ?? '';
-                                        if (!empty($version['download_url'])) {
-                                            $download_url = $version['download_url'];
-                                        }
-                                        break;
-                                    }
+                            foreach ($channel_data['versions'] as $version) {
+                                if ($version['version_code'] === $latest_code) {
+                                    $latest_hash = $version['checksum'];
+                                    break;
                                 }
                             }
 
@@ -7516,45 +7261,18 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                             }
                         }
 
-                        $release_notes = $channel_data['release_notes'] ?? '';
-                        $release_date  = $channel_data['release_date'] ?? '';
-
                         if($update_available == true){
                             set_env('last-update-version-name', $latest_name);
                             set_env('last-update-version-hash', $latest_hash);
                             set_env('last-update-version', $latest_code);
-                            set_env('last-update-download-url', $download_url);
-                            set_env('last-update-release-notes', $release_notes);
-                            set_env('last-update-release-date', $release_date);
 
-                            echo json_encode([
-                                'status' => 'true',
-                                'title' => 'Update Available',
-                                'message' => 'A new system update (' . $latest_name . ') is available on GitHub. Please update to get the latest features.',
-                                'csrf_token' => $new_csrf_token,
-                                'update_available' => true,
-                                'version_name' => $latest_name,
-                                'version_code' => $latest_code,
-                                'release_notes' => $release_notes,
-                                'release_date' => $release_date,
-                                'download_url' => $download_url
-                            ]);
+                            echo json_encode(['status' => 'true', 'title' => 'Update Available', 'message' => 'A new system update is available. Please update to get the latest features and improvements.', 'csrf_token' => $new_csrf_token]);
                         }else{
                             set_env('last-update-version-name', $current_name);
                             set_env('last-update-version-hash', $version_hash);
                             set_env('last-update-version', $current_code);
-                            set_env('last-update-release-notes', '');
-                            set_env('last-update-release-date', '');
 
-                            echo json_encode([
-                                'status' => 'true',
-                                'title' => 'System Up to Date',
-                                'message' => 'Everything is up to date. You are running the latest version (' . $current_name . ').',
-                                'csrf_token' => $new_csrf_token,
-                                'update_available' => false,
-                                'version_name' => $current_name,
-                                'version_code' => $current_code
-                            ]);
+                           echo json_encode(['status' => 'true', 'title' => 'System Up to Date', 'message' => 'Everything is up to date. No updates were found.', 'csrf_token' => $new_csrf_token]);
                         }
                     }
                 }else{
@@ -7585,10 +7303,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         }
 
                         if($update_available == true){
-                            $download_url = get_env('last-update-download-url');
-                            if (empty($download_url) || $download_url === '--') {
-                                $download_url = "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip";
-                            }
+                            $url = "https://updates.piprapay.com/download.php?version=$lasted_update_version";
 
                             $saveDir =  __DIR__ . '/../../pp-media/storage/updates/';
 
@@ -7599,16 +7314,14 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                             $saveTo = $saveDir . $lasted_update_version . '.zip';
 
                             // Initialize curl
-                            $ch = curl_init($download_url);
+                            $ch = curl_init($url);
                             $fp = fopen($saveTo, 'w');
 
-                            curl_setopt($ch, CURLOPT_FILE, $fp);
-                            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                            curl_setopt($ch, CURLOPT_USERAGENT, 'PipraPay-Updater/3.0');
-                            curl_setopt($ch, CURLOPT_FAILONERROR, true);
-                            curl_setopt($ch, CURLOPT_TIMEOUT, 180);
-                            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+                            curl_setopt($ch, CURLOPT_FILE, $fp);          // write to file
+                            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // follow redirects
+                            curl_setopt($ch, CURLOPT_FAILONERROR, true);    // HTTP >= 400 will fail
+                            curl_setopt($ch, CURLOPT_TIMEOUT, 120);        // max 2 minutes
+                            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);  // connection timeout
 
                             $success = curl_exec($ch);
                             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -7617,9 +7330,8 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                             curl_close($ch);
                             fclose($fp);
 
-                            if (!$success || $httpCode >= 400 || !file_exists($saveTo) || filesize($saveTo) < 1000) {
-                                @unlink($saveTo);
-                                echo json_encode(['status' => 'false', 'title' => 'Download Failed', 'message' => 'The latest update could not be downloaded from GitHub. Error: ' . ($error ?: "HTTP $httpCode"), 'csrf_token' => $new_csrf_token]);
+                            if (!$success || $httpCode >= 400) {
+                                echo json_encode(['status' => 'false', 'title' => 'Download Failed', 'message' => 'The latest update could not be downloaded. Please check your internet connection or try again later.', 'csrf_token' => $new_csrf_token]);
                             }else{
                                 echo json_encode(['status' => 'true', 'title' => 'Update Downloaded', 'message' => 'The latest version has been downloaded successfully and is ready to be installed.', 'csrf_token' => $new_csrf_token]);
                             }
@@ -7651,247 +7363,50 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                         $lasted_update_version = get_env('last-update-version');
                         $lasted_update_version_hash = get_env('last-update-version-hash');
 
-                        if (empty($lasted_update_version) || $lasted_update_version === '--') {
-                            $lasted_update_version = '3.0.1';
+                        if (version_compare($lasted_update_version, $piprapay_current_version['version_code'], '>')) {
+                            $update_available = true;
                         }
 
-                        $root = realpath(__DIR__ . '/../../');
-                        $storage = __DIR__ . '/../../pp-media/storage/';
-                        $backupDir = $storage . 'backup/';
-                        $tempDir   = $storage . "temp/$lasted_update_version/";
-                        $zipFile   = $storage . "updates/$lasted_update_version.zip";
+                        if($update_available == true){
+                            $root = realpath(__DIR__ . '/../../'); 
+                            $storage = __DIR__ . '/../../pp-media/storage/';
 
-                        // If zip file is not downloaded, download it automatically
-                        if (!file_exists($zipFile) || filesize($zipFile) < 1000) {
-                            $download_url = get_env('last-update-download-url');
-                            if (empty($download_url) || $download_url === '--') {
-                                $download_url = "https://github.com/alannurme/pay.nur-lab.com/archive/refs/heads/main.zip";
-                            }
-                            @mkdir(dirname($zipFile), 0755, true);
-                            $ch = curl_init($download_url);
-                            $fp = fopen($zipFile, 'w');
-                            curl_setopt_array($ch, [
-                                CURLOPT_FILE => $fp,
-                                CURLOPT_FOLLOWLOCATION => true,
-                                CURLOPT_SSL_VERIFYPEER => false,
-                                CURLOPT_USERAGENT => 'PipraPay-Updater/3.0',
-                                CURLOPT_TIMEOUT => 180
-                            ]);
-                            curl_exec($ch);
-                            curl_close($ch);
-                            fclose($fp);
-                        }
+                            $backupDir = $storage . 'backup/';
+                            $tempDir   = $storage . "temp/$lasted_update_version/";
+                            $zipFile   = $storage . "updates/$lasted_update_version.zip";
 
-                        if (!file_exists($zipFile) || filesize($zipFile) < 1000) {
-                            echo json_encode(['status' => 'false', 'title' => 'Installation Failed', 'message' => 'Update archive file is missing or corrupted. Please click Download Update again.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        try {
-                            // 1. Create backup if enabled
-                            $createBackup = get_env('system-settings-create_backup');
-                            if ($createBackup !== 'no') {
-                                @mkdir($backupDir, 0755, true);
-                                $snapName = ($piprapay_current_version['version_code'] ?? 'backup') . "_" . date('Ymd_His');
-                                @zipFolder($root, "$backupDir/{$snapName}.zip");
-                                try {
-                                    @backupDatabasePDO("$backupDir/db_{$snapName}.sql");
-                                } catch (Throwable $e) {}
+                            if (sha1_file($zipFile) !== $lasted_update_version_hash) {
+                                echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Update file checksum mismatch! Possible corruption or tampering.' , 'csrf_token' => $new_csrf_token]);
+                                exit();
                             }
 
-                            // 2. Set maintenance
-                            @file_put_contents("$root/.maintenance", 'updating');
-
-                            // 3. Extract and apply update
+                            @mkdir($backupDir, 0755, true);
                             @mkdir($tempDir, 0755, true);
+
+                            zipFolder($root, "$backupDir/".$piprapay_current_version['version_code'].".zip");
+
+                            backupDatabasePDO("$backupDir/db_".$piprapay_current_version['version_code'].".sql");
+
+                            file_put_contents("$root/.maintenance", 'updating');
+
                             extractUpdate($zipFile, $tempDir);
+
                             copyFolder($tempDir, $root);
 
                             if (file_exists("$tempDir/update.sql")) {
-                                try {
-                                    runSql("$tempDir/update.sql");
-                                } catch (Throwable $e) {}
+                                runSql("$tempDir/update.sql");
                             }
 
-                            // 4. Cleanup
                             deleteFolder($tempDir);
-                            @unlink($zipFile);
-                            @unlink("$root/.maintenance");
-
-                            // 5. Update environment keys
-                            set_env('last-update-version', '');
-                            set_env('last-update-version-name', '');
-                            set_env('last-update-download-url', '');
-                            set_env('last-auto-update-check', getCurrentDatetime('Y-m-d H:i:s'));
+                            unlink("$root/.maintenance");
 
                             echo json_encode(['status' => 'true', 'title' => 'Installation Successful', 'message' => 'The latest version has been installed successfully. Your system is now up to date.', 'csrf_token' => $new_csrf_token]);
-                        } catch (Throwable $e) {
-                            @unlink("$root/.maintenance");
-                            echo json_encode(['status' => 'false', 'title' => 'Installation Error', 'message' => $e->getMessage(), 'csrf_token' => $new_csrf_token]);
+                        }else{
+                            echo json_encode(['status' => 'true', 'title' => 'System Up to Date', 'message' => 'Everything is up to date. No updates were found.', 'csrf_token' => $new_csrf_token]);
                         }
                     }
                 }else{
                     echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
-                        if($action == "system-settings-update-manual-upload"){
-                if($global_user_login == true){
-                    if (!empty($pp_demo_mode)) {
-                        echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.', 'csrf_token' => $new_csrf_token]);
-                    }else{
-                        if (!canAccessPage(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', $global_user_response['response'][0]['role']) ||
-                            !hasPermission(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', 'manage_update', $global_user_response['response'][0]['role'])) {
-                            echo json_encode(['status' => 'false', 'title' => 'Access denied', 'message' => 'You need permission to perform this action. Please contact the admin.' , 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        if (!isset($_FILES['update_zip']) || $_FILES['update_zip']['error'] !== UPLOAD_ERR_OK) {
-                            echo json_encode(['status' => 'false', 'title' => 'Upload Failed', 'message' => 'No valid zip archive uploaded or file upload error.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        $fileTmp = $_FILES['update_zip']['tmp_name'];
-                        $fileName = $_FILES['update_zip']['name'];
-                        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-
-                        if ($ext !== 'zip') {
-                            echo json_encode(['status' => 'false', 'title' => 'Invalid Format', 'message' => 'Only valid .zip update archives are supported.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        $storage = __DIR__ . '/../../pp-media/storage/';
-                        $saveDir = $storage . 'updates/';
-                        @mkdir($saveDir, 0755, true);
-                        $saveTo = $saveDir . 'manual_update.zip';
-
-                        if (!move_uploaded_file($fileTmp, $saveTo)) {
-                            echo json_encode(['status' => 'false', 'title' => 'Upload Failed', 'message' => 'Could not save uploaded zip file to storage.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        $root = realpath(__DIR__ . '/../../');
-                        $backupDir = $storage . 'backup/';
-                        $tempDir   = $storage . "temp/manual_update/";
-
-                        try {
-                            $createBackup = get_env('system-settings-create_backup');
-                            if ($createBackup !== 'no') {
-                                @mkdir($backupDir, 0755, true);
-                                @zipFolder($root, "$backupDir/" . ($piprapay_current_version['version_code'] ?? 'backup') . "_" . date('Ymd_His') . ".zip");
-                                try {
-                                    @backupDatabasePDO("$backupDir/db_" . ($piprapay_current_version['version_code'] ?? 'backup') . "_" . date('Ymd_His') . ".sql");
-                                } catch (Throwable $e) {}
-                            }
-
-                            @file_put_contents("$root/.maintenance", 'updating');
-
-                            @mkdir($tempDir, 0755, true);
-                            extractUpdate($saveTo, $tempDir);
-                            copyFolder($tempDir, $root);
-
-                            if (file_exists("$tempDir/update.sql")) {
-                                try {
-                                    runSql("$tempDir/update.sql");
-                                } catch (Throwable $e) {}
-                            }
-
-                            deleteFolder($tempDir);
-                            @unlink($saveTo);
-                            @unlink("$root/.maintenance");
-
-                            set_env('last-update-version', '');
-                            set_env('last-update-version-name', '');
-                            set_env('last-update-download-url', '');
-                            set_env('last-update-release-notes', '');
-                            set_env('last-update-release-date', '');
-                            set_env('last-auto-update-check', getCurrentDatetime('Y-m-d H:i:s'));
-
-                            echo json_encode(['status' => 'true', 'title' => 'Update Applied', 'message' => 'Manual update archive has been extracted and installed successfully.', 'csrf_token' => $new_csrf_token]);
-                        } catch (Throwable $e) {
-                            @unlink("$root/.maintenance");
-                            echo json_encode(['status' => 'false', 'title' => 'Installation Failed', 'message' => $e->getMessage(), 'csrf_token' => $new_csrf_token]);
-                        }
-                    }
-                }else{
-                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
-                        if($action == "system-settings-update-backup-delete"){
-                if($global_user_login == true){
-                    if (!empty($pp_demo_mode)) {
-                        echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.', 'csrf_token' => $new_csrf_token]);
-                    }else{
-                        if (!canAccessPage(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', $global_user_response['response'][0]['role']) ||
-                            !hasPermission(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', 'manage_update', $global_user_response['response'][0]['role'])) {
-                            echo json_encode(['status' => 'false', 'title' => 'Access denied', 'message' => 'You need permission to perform this action. Please contact the admin.' , 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        $fileName = isset($_POST['file']) ? basename(trim($_POST['file'])) : '';
-                        $deleteAll = isset($_POST['delete_all']) && $_POST['delete_all'] === 'yes';
-
-                        $backupDir = __DIR__ . '/../../pp-media/storage/backup/';
-
-                        if ($deleteAll) {
-                            if (is_dir($backupDir)) {
-                                $files = scandir($backupDir);
-                                foreach ($files as $f) {
-                                    if ($f !== '.' && $f !== '..' && (str_ends_with($f, '.zip') || str_ends_with($f, '.sql'))) {
-                                        @unlink($backupDir . $f);
-                                    }
-                                }
-                            }
-                            echo json_encode(['status' => 'true', 'title' => 'Backups Deleted', 'message' => 'All safety backup snapshots have been deleted successfully.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        if (empty($fileName) || (!str_ends_with($fileName, '.zip') && !str_ends_with($fileName, '.sql'))) {
-                            echo json_encode(['status' => 'false', 'title' => 'Invalid File', 'message' => 'Invalid backup filename specified.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        $targetFile = $backupDir . $fileName;
-                        if (file_exists($targetFile)) {
-                            @unlink($targetFile);
-                            echo json_encode(['status' => 'true', 'title' => 'Snapshot Deleted', 'message' => 'Backup snapshot ' . htmlspecialchars($fileName) . ' was deleted successfully.', 'csrf_token' => $new_csrf_token]);
-                        } else {
-                            echo json_encode(['status' => 'false', 'title' => 'Not Found', 'message' => 'Backup snapshot file does not exist.', 'csrf_token' => $new_csrf_token]);
-                        }
-                    }
-                }else{
-                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
-            if($action == "system-settings-update-backup-download"){
-                if($global_user_login == true){
-                    if (!canAccessPage(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', $global_user_response['response'][0]['role']) ||
-                        !hasPermission(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', 'manage_update', $global_user_response['response'][0]['role'])) {
-                        http_response_code(403);
-                        exit('Access denied');
-                    }
-                    $fileName = isset($_GET['file']) ? basename(trim($_GET['file'])) : (isset($_POST['file']) ? basename(trim($_POST['file'])) : '');
-                    $targetFile = __DIR__ . '/../../pp-media/storage/backup/' . $fileName;
-
-                    if (!empty($fileName) && file_exists($targetFile) && (str_ends_with($fileName, '.zip') || str_ends_with($fileName, '.sql'))) {
-                        if (ob_get_level()) {
-                            ob_end_clean();
-                        }
-                        header('Content-Description: File Transfer');
-                        header('Content-Type: application/octet-stream');
-                        header('Content-Disposition: attachment; filename="' . $fileName . '"');
-                        header('Expires: 0');
-                        header('Cache-Control: must-revalidate');
-                        header('Pragma: public');
-                        header('Content-Length: ' . filesize($targetFile));
-                        readfile($targetFile);
-                        exit();
-                    } else {
-                        http_response_code(404);
-                        exit('Backup snapshot file not found');
-                    }
                 }
             }
 
@@ -8010,224 +7525,6 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                     }
                 }else{
                     echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request' , 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
-            if($action == "system-settings-notification-save"){
-                if($global_user_login == true){
-                    if (!empty($pp_demo_mode)) {
-                        echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.', 'csrf_token' => $new_csrf_token]);
-                    }else{
-                        if (!canAccessPage(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', $global_user_response['response'][0]['role'])) {
-                            echo json_encode(['status' => 'false', 'title' => 'Access denied', 'message' => 'You need permission to perform this action. Please contact the admin.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        if (!hasPermission(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', 'manage_notification', $global_user_response['response'][0]['role'])) {
-                            echo json_encode(['status' => 'false', 'title' => 'Access denied', 'message' => 'You need permission to perform this action. Please contact the admin.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        $fields = [
-                            // Telegram
-                            'notification_telegram_token',
-                            'notification_telegram_chat_id',
-                            'notification_telegram_topic_id',
-                            // Discord
-                            'notification_discord_webhook',
-                            'notification_discord_bot_name',
-                            // WhatsApp
-                            'notification_whatsapp_api_url',
-                            'notification_whatsapp_api_key',
-                            'notification_whatsapp_sender',
-                            'notification_whatsapp_target_phone',
-                            // Email
-                            'notification_email_smtp_host',
-                            'notification_email_smtp_port',
-                            'notification_email_smtp_enc',
-                            'notification_email_smtp_user',
-                            'notification_email_smtp_pass',
-                            'notification_email_from_name',
-                            'notification_email_from',
-                            'notification_email_admin_recipients',
-                            // SMS
-                            'notification_sms_api_url',
-                            'notification_sms_api_key',
-                            'notification_sms_sender_id',
-                            // Event Switches
-                            'notification_event_admin_payment_success_telegram',
-                            'notification_event_admin_payment_success_discord',
-                            'notification_event_admin_payment_success_whatsapp',
-                            'notification_event_admin_payment_success_email',
-                            'notification_event_admin_payment_failed_telegram',
-                            'notification_event_admin_payment_failed_discord',
-                            'notification_event_device_offline_telegram',
-                            'notification_event_device_offline_discord',
-                            'notification_event_device_offline_whatsapp',
-                            'notification_event_device_battery_telegram',
-                            'notification_event_device_battery_discord',
-                            'notification_event_customer_payment_success_email',
-                            'notification_event_customer_payment_success_sms'
-                        ];
-
-                        foreach ($fields as $field) {
-                            if (isset($_POST[$field])) {
-                                set_env($field, escape_string($_POST[$field]));
-                            }
-                        }
-
-                        echo json_encode(['status' => 'true', 'title' => 'Settings Saved', 'message' => 'Notification settings and routing rules have been updated successfully.', 'csrf_token' => $new_csrf_token]);
-                    }
-                }else{
-                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request', 'csrf_token' => $new_csrf_token]);
-                }
-            }
-
-            if($action == "system-settings-notification-test"){
-                if($global_user_login == true){
-                    if (!canAccessPage(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', $global_user_response['response'][0]['role'])) {
-                        echo json_encode(['status' => 'false', 'title' => 'Access denied', 'message' => 'You need permission to perform this action. Please contact the admin.', 'csrf_token' => $new_csrf_token]);
-                        exit();
-                    }
-
-                    if (!hasPermission(json_decode($global_response_permission['response'][0]['permission'], true), 'system_settings', 'manage_notification', $global_user_response['response'][0]['role'])) {
-                        echo json_encode(['status' => 'false', 'title' => 'Access denied', 'message' => 'You need permission to perform this action. Please contact the admin.', 'csrf_token' => $new_csrf_token]);
-                        exit();
-                    }
-
-                    $channel = escape_string($_POST['channel'] ?? '');
-                    $siteName = get_env('geneal-brand-settings-title') ?: 'PipraPay';
-                    if ($siteName === '--') $siteName = 'PipraPay';
-
-                    if ($channel === 'telegram') {
-                        $token = !empty($_POST['notification_telegram_token']) ? trim($_POST['notification_telegram_token']) : get_env('notification_telegram_token');
-                        $chatId = !empty($_POST['notification_telegram_chat_id']) ? trim($_POST['notification_telegram_chat_id']) : get_env('notification_telegram_chat_id');
-                        $topicId = !empty($_POST['notification_telegram_topic_id']) ? trim($_POST['notification_telegram_topic_id']) : get_env('notification_telegram_topic_id');
-
-                        if (empty($token) || $token === '--' || empty($chatId) || $chatId === '--') {
-                            echo json_encode(['status' => 'false', 'title' => 'Missing Configuration', 'message' => 'Please enter your Telegram Bot Token and Chat ID to send a test message.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-                        $msg = "⚡ <b>PipraPay Test Notification</b>\n\n"
-                             . "✅ Your Telegram Bot notification system is working perfectly!\n"
-                             . "🕒 <b>Time:</b> " . date('Y-m-d H:i:s') . "\n"
-                             . "🌐 <b>Platform:</b> {$siteName}";
-                        $res = pp_send_telegram($msg, $chatId, $token, $topicId);
-                        if (!empty($res['status'])) {
-                            echo json_encode(['status' => 'true', 'title' => 'Telegram Alert Sent', 'message' => $res['message'] ?? 'Test notification sent to Telegram successfully!', 'csrf_token' => $new_csrf_token]);
-                        } else {
-                            echo json_encode(['status' => 'false', 'title' => 'Telegram Error', 'message' => $res['message'] ?? 'Telegram API error. Please check your Bot Token and Chat ID.', 'csrf_token' => $new_csrf_token]);
-                        }
-                    } elseif ($channel === 'discord') {
-                        $webhook = !empty($_POST['notification_discord_webhook']) ? trim($_POST['notification_discord_webhook']) : get_env('notification_discord_webhook');
-                        $botName = !empty($_POST['notification_discord_bot_name']) ? trim($_POST['notification_discord_bot_name']) : get_env('notification_discord_bot_name');
-
-                        if (empty($webhook) || $webhook === '--') {
-                            echo json_encode(['status' => 'false', 'title' => 'Missing Configuration', 'message' => 'Please enter your Discord Webhook URL to send a test alert.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-                        $fields = [
-                            ['name' => 'Status', 'value' => '✅ Connected & Verified', 'inline' => true],
-                            ['name' => 'Platform', 'value' => $siteName, 'inline' => true],
-                            ['name' => 'Timestamp', 'value' => date('Y-m-d H:i:s'), 'inline' => false]
-                        ];
-                        $res = pp_send_discord("🔔 Discord Test Alert", "Your Discord webhook integration for **{$siteName}** is working properly.", $fields, 5793266, $webhook);
-                        if (!empty($res['status'])) {
-                            echo json_encode(['status' => 'true', 'title' => 'Discord Alert Sent', 'message' => $res['message'] ?? 'Test embed notification posted to Discord successfully!', 'csrf_token' => $new_csrf_token]);
-                        } else {
-                            echo json_encode(['status' => 'false', 'title' => 'Discord Error', 'message' => $res['message'] ?? 'Failed to send to Discord webhook. Please check the Webhook URL.', 'csrf_token' => $new_csrf_token]);
-                        }
-                    } elseif ($channel === 'whatsapp') {
-                        $apiUrl = !empty($_POST['notification_whatsapp_api_url']) ? trim($_POST['notification_whatsapp_api_url']) : get_env('notification_whatsapp_api_url');
-                        $apiKey = !empty($_POST['notification_whatsapp_api_key']) ? trim($_POST['notification_whatsapp_api_key']) : get_env('notification_whatsapp_api_key');
-                        $sender = !empty($_POST['notification_whatsapp_sender']) ? trim($_POST['notification_whatsapp_sender']) : get_env('notification_whatsapp_sender');
-                        $targetPhone = !empty($_POST['notification_whatsapp_target_phone']) ? trim($_POST['notification_whatsapp_target_phone']) : get_env('notification_whatsapp_target_phone');
-
-                        if (empty($apiUrl) || $apiUrl === '--') {
-                            echo json_encode(['status' => 'false', 'title' => 'Missing Configuration', 'message' => 'Please enter your WhatsApp API Endpoint URL first.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-                        if (empty($targetPhone) || $targetPhone === '--') {
-                            echo json_encode(['status' => 'false', 'title' => 'Missing Target Number', 'message' => 'Please enter a target WhatsApp phone number to receive the test message.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-                        $msg = "⚡ *PipraPay WhatsApp Test Notification*\n\nYour WhatsApp alert integration on {$siteName} is working properly!\nTime: " . date('Y-m-d H:i:s');
-                        $res = pp_send_whatsapp($targetPhone, $msg, ['api_url' => $apiUrl, 'api_key' => $apiKey, 'sender_id' => $sender]);
-                        if (!empty($res['status'])) {
-                            echo json_encode(['status' => 'true', 'title' => 'WhatsApp Alert Sent', 'message' => $res['message'] ?? 'Test message sent to WhatsApp successfully!', 'csrf_token' => $new_csrf_token]);
-                        } else {
-                            echo json_encode(['status' => 'false', 'title' => 'WhatsApp Error', 'message' => $res['message'] ?? 'WhatsApp API error. Verify your endpoint URL & API credentials.', 'csrf_token' => $new_csrf_token]);
-                        }
-                    } elseif ($channel === 'email') {
-                        $smtpHost = !empty($_POST['notification_email_smtp_host']) ? trim($_POST['notification_email_smtp_host']) : get_env('notification_email_smtp_host');
-                        $smtpPort = !empty($_POST['notification_email_smtp_port']) ? trim($_POST['notification_email_smtp_port']) : get_env('notification_email_smtp_port');
-                        $smtpEnc  = !empty($_POST['notification_email_smtp_enc']) ? trim($_POST['notification_email_smtp_enc']) : get_env('notification_email_smtp_enc');
-                        $smtpUser = !empty($_POST['notification_email_smtp_user']) ? trim($_POST['notification_email_smtp_user']) : get_env('notification_email_smtp_user');
-                        $smtpPass = !empty($_POST['notification_email_smtp_pass']) ? trim($_POST['notification_email_smtp_pass']) : get_env('notification_email_smtp_pass');
-                        $fromName = !empty($_POST['notification_email_from_name']) ? trim($_POST['notification_email_from_name']) : get_env('notification_email_from_name');
-                        $fromEmail = !empty($_POST['notification_email_from']) ? trim($_POST['notification_email_from']) : get_env('notification_email_from');
-                        $adminEmail = !empty($_POST['notification_email_admin_recipients']) ? trim($_POST['notification_email_admin_recipients']) : (get_env('notification_email_admin_recipients') ?: ($global_user_response['response'][0]['email'] ?? ''));
-
-                        if (empty($smtpHost) || $smtpHost === '--') {
-                            echo json_encode(['status' => 'false', 'title' => 'Missing SMTP Host', 'message' => 'Please configure your SMTP Host, Username, and Password before testing.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-                        if (empty($adminEmail) || $adminEmail === '--') {
-                            echo json_encode(['status' => 'false', 'title' => 'Missing Recipient Email', 'message' => 'Please enter an Admin Alert Email recipient to receive the test email.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-
-                        $firstEmail = trim(explode(',', $adminEmail)[0]);
-                        $subject = "⚡ PipraPay SMTP Test Email";
-                        $html = "<div style='font-family: Arial, sans-serif; max-width: 500px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-                            <h2 style='color: #4f46e5; margin-top: 0;'>SMTP Email Integration Verified</h2>
-                            <p>This is a test email confirming your SMTP server settings on <strong>{$siteName}</strong> are working correctly.</p>
-                            <p style='color: #64748b; font-size: 13px;'>Sent at: " . date('Y-m-d H:i:s') . "</p>
-                        </div>";
-                        $res = pp_send_email($firstEmail, $subject, $html, [
-                            'smtp_host' => $smtpHost,
-                            'smtp_port' => $smtpPort,
-                            'smtp_enc'  => $smtpEnc,
-                            'smtp_user' => $smtpUser,
-                            'smtp_pass' => $smtpPass,
-                            'from_name' => $fromName,
-                            'from_email'=> $fromEmail
-                        ]);
-                        if (!empty($res['status'])) {
-                            echo json_encode(['status' => 'true', 'title' => 'Email Sent', 'message' => $res['message'] ?? "Test email dispatched to {$firstEmail} successfully!", 'csrf_token' => $new_csrf_token]);
-                        } else {
-                            echo json_encode(['status' => 'false', 'title' => 'SMTP Error', 'message' => $res['message'] ?? 'Failed to send test email. Please verify SMTP host, port, username, and password.', 'csrf_token' => $new_csrf_token]);
-                        }
-                    } elseif ($channel === 'sms') {
-                        $smsUrl = !empty($_POST['notification_sms_api_url']) ? trim($_POST['notification_sms_api_url']) : get_env('notification_sms_api_url');
-                        $apiKey = !empty($_POST['notification_sms_api_key']) ? trim($_POST['notification_sms_api_key']) : get_env('notification_sms_api_key');
-                        $senderId = !empty($_POST['notification_sms_sender_id']) ? trim($_POST['notification_sms_sender_id']) : get_env('notification_sms_sender_id');
-                        $targetPhone = !empty($_POST['notification_whatsapp_target_phone']) ? trim($_POST['notification_whatsapp_target_phone']) : (get_env('notification_whatsapp_target_phone') ?: ($global_user_response['response'][0]['phone'] ?? ''));
-
-                        if (empty($smsUrl) || $smsUrl === '--') {
-                            echo json_encode(['status' => 'false', 'title' => 'Missing Configuration', 'message' => 'Please enter your SMS Gateway HTTP API URL before testing.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-                        if (empty($targetPhone) || $targetPhone === '--') {
-                            echo json_encode(['status' => 'false', 'title' => 'Missing Target Number', 'message' => 'Please configure a target recipient phone number to receive the test SMS.', 'csrf_token' => $new_csrf_token]);
-                            exit();
-                        }
-                        $msg = "PipraPay SMS Test Alert: SMS gateway integration is working properly on {$siteName}.";
-                        $res = pp_send_sms($targetPhone, $msg, [
-                            'api_url' => $smsUrl,
-                            'api_key' => $apiKey,
-                            'sender_id' => $senderId
-                        ]);
-                        if (!empty($res['status'])) {
-                            echo json_encode(['status' => 'true', 'title' => 'SMS Dispatched', 'message' => $res['message'] ?? "Test SMS dispatched to {$targetPhone} successfully!", 'csrf_token' => $new_csrf_token]);
-                        } else {
-                            echo json_encode(['status' => 'false', 'title' => 'SMS Error', 'message' => $res['message'] ?? 'Failed to dispatch SMS. Verify your API URL & parameters.', 'csrf_token' => $new_csrf_token]);
-                        }
-                    } else {
-                        echo json_encode(['status' => 'false', 'title' => 'Invalid Channel', 'message' => 'Unknown notification channel.', 'csrf_token' => $new_csrf_token]);
-                    }
-                }else{
-                    echo json_encode(['status' => 'false', 'title' => 'Request Failed', 'message' => 'Invalid request', 'csrf_token' => $new_csrf_token]);
                 }
             }
 
@@ -9226,55 +8523,6 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
 
 
 
-            if($action == "live-recent-payments"){
-                if($global_user_login == true){
-                    $last_id = intval($_POST['last_id'] ?? 0);
-                    $brand_id = $global_response_brand['response'][0]['brand_id'] ?? '';
-                    
-                    $condition = ' WHERE status = "completed" AND brand_id = "'.$brand_id.'"';
-                    if($last_id > 0){
-                        $condition .= ' AND id > '.$last_id;
-                    } else {
-                        $condition .= ' ORDER BY id DESC LIMIT 5';
-                    }
-
-                    $response_tx = json_decode(getData($db_prefix.'transaction', $condition . ' ORDER BY id DESC LIMIT 10'), true);
-                    $new_payments = [];
-                    $max_id = $last_id;
-
-                    if($response_tx['status'] == true && !empty($response_tx['response'])){
-                        foreach($response_tx['response'] as $tx){
-                            $txId = intval($tx['id']);
-                            if($txId > $max_id) $max_id = $txId;
-
-                            $cust = json_decode($tx['customer_info'], true) ?: [];
-                            $new_payments[] = [
-                                'id'       => $txId,
-                                'ref'      => $tx['ref'],
-                                'amount'   => money_round($tx['amount'], 2),
-                                'currency' => $tx['currency'],
-                                'gateway'  => $tx['sender_key'] ?: 'Payment',
-                                'sender'   => $tx['sender'],
-                                'trx_id'   => $tx['trx_id'],
-                                'name'     => $cust['name'] ?? 'Customer',
-                                'time'     => convertUTCtoUserTZ($tx['updated_date'], 'Asia/Dhaka', 'h:i:s A')
-                            ];
-                        }
-                    }
-
-                    echo json_encode([
-                        'status'     => 'true',
-                        'last_id'    => $max_id,
-                        'payments'   => $new_payments,
-                        'csrf_token' => $new_csrf_token
-                    ]);
-                    exit();
-                } else {
-                    echo json_encode(['status' => 'false', 'message' => 'Unauthorized', 'csrf_token' => $new_csrf_token]);
-                    exit();
-                }
-            }
-
         }
 
         exit();
@@ -9528,37 +8776,15 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
             }
 
             if($action == "transaction-verify"){
-                    // Anti-Bruteforce & Rate Limiting (max 60 polling requests / min per IP)
-                    if (session_status() === PHP_SESSION_NONE) {
-                        @session_start();
-                    }
-                    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-                    $rateKey = 'pp_rate_verify_' . md5($ip);
-                    $currentTime = time();
-                    
-                    if (!isset($_SESSION[$rateKey])) {
-                        $_SESSION[$rateKey] = ['count' => 1, 'start' => $currentTime];
-                    } else {
-                        if ($currentTime - $_SESSION[$rateKey]['start'] > 60) {
-                            $_SESSION[$rateKey] = ['count' => 1, 'start' => $currentTime];
-                        } else {
-                            $_SESSION[$rateKey]['count']++;
-                            if ($_SESSION[$rateKey]['count'] > 60) {
-                                echo json_encode(['status' => "false", 'title' => 'Too Many Requests', 'message' => 'Polling limit reached. Please wait a few seconds before trying again.']);
-                                exit();
-                            }
-                        }
-                    }
-
                     $gateway_id = escape_string($_POST['gateway-id'] ?? '');
                     $transaction_id = trim(escape_string($_POST['transaction-id'] ?? ''));
 
                     if($gateway_id == "" || $transaction_id == ""){
                         echo json_encode(['status' => "false", 'title' => 'Incomplete Information', 'message' => 'Please fill in all required fields before proceeding.']);
                     }else{
-                        $params = [ ':ref' => $transaction_id ];
+                        $params = [ ':ref' => $transaction_id, ':status' => 'initiated' ];
 
-                        $response_transaction = json_decode(getData($db_prefix.'transaction','WHERE ref = :ref AND (status = "initiated" OR status = "pending")', '* FROM', $params),true);
+                        $response_transaction = json_decode(getData($db_prefix.'transaction','WHERE ref = :ref AND status = :status ', '* FROM', $params),true);
                         if($response_transaction['status'] == true){
                             $params = [ ':brand_id' => $response_transaction['response'][0]['brand_id'] ];
 
@@ -9656,67 +8882,7 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                         $all_transactions = [];
 
                                         if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
-                                            $vMethod = $options['verification_method'] ?? 'trx_id';
                                             $trxid = escape_string($_POST['trxid'] ?? '');
-                                            $mobile_number = escape_string($_POST['mobile_number'] ?? '');
-
-                                            if ($vMethod === 'phone_number' || ($mobile_number != '' && $trxid == '')) {
-                                                if($mobile_number == ""){
-                                                    echo json_encode(['status' => "false", 'title' => 'Missing Account Number', 'message' => 'Please enter a valid sender account number.']);
-                                                    exit();
-                                                }
-
-                                                $last10 = substr(preg_replace('/\D/', '', $mobile_number), -10);
-                                                $with88 = '880' . $last10;
-                                                $withPlus88 = '+880' . $last10;
-                                                $withZero = '0' . $last10;
-
-                                                // Support sender keys for bKash, Nagad, Rocket, Upay
-                                                $senderKeyList = [$gateway_info['sender_key']];
-                                                if ($gateway_info['sender_key'] === 'rocket') {
-                                                    $senderKeyList[] = '16216';
-                                                }
-
-                                                // Strictly match SMS received after transaction was confirmed in Step 1 (-2 minutes margin for minor clock difference)
-                                                $txnCreatedDate = date('Y-m-d H:i:s', strtotime(($response_transaction['response'][0]['created_date'] ?? date('Y-m-d H:i:s')) . ' -2 minutes'));
-                                                $params = [ 
-                                                    ':num1'       => $mobile_number, 
-                                                    ':num2'       => $withZero,
-                                                    ':num3'       => $with88,
-                                                    ':num4'       => $withPlus88,
-                                                    ':status'     => 'approved',
-                                                    ':tdate'      => $txnCreatedDate
-                                                ];
-                                                
-                                                $senderKeyCond = "sender_key IN ('" . implode("','", array_map('escape_string', $senderKeyList)) . "')";
-                                                $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE ' . $senderKeyCond . ' AND (number = :num1 OR number = :num2 OR number = :num3 OR number = :num4) AND status = :status AND created_date >= :tdate ORDER BY id DESC', '* FROM', $params), true);
-
-                                                $matchedSms = null;
-                                                if($response_pending_SMSTransaction['status'] == true && !empty($response_pending_SMSTransaction['response'])){
-                                                    $response_brand_check = json_decode(getData($db_prefix.'brands',' WHERE brand_id ="'.$response_transaction['response'][0]['brand_id'].'"'),true);
-                                                    $tolerance = $response_brand_check['response'][0]['payment_tolerance'] ?? 0;
-
-                                                    foreach($response_pending_SMSTransaction['response'] as $smsRow){
-                                                        if (verifyPaymentTolerance($convertedAmount, $smsRow['amount'], $tolerance)) {
-                                                            $matchedSms = $smsRow;
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-
-                                                if($matchedSms !== null){
-                                                    $trxid = $matchedSms['trx_id'];
-                                                } else {
-                                                    // Save transaction as pending with sender number while waiting for auto-verify SMS
-                                                    $columns = ['processing_fee', 'discount_amount', 'local_net_amount', 'local_currency', 'gateway_id', 'sender_key', 'status', 'sender', 'updated_date'];
-                                                    $values = [money_sanitize($totalProcessingFee), money_sanitize($totalDiscount), money_sanitize($convertedAmount), $response_gateway['response'][0]['currency'], $gateway_id, $gateway_info['sender_key'], 'pending', $mobile_number, getCurrentDatetime('Y-m-d H:i:s')];
-                                                    $condition = 'id ="'.$response_transaction['response'][0]['id'].'"';
-                                                    updateData($db_prefix.'transaction', $columns, $values, $condition);
-
-                                                    echo json_encode(['status' => "false", 'title' => 'Waiting for Payment', 'message' => 'Payment SMS not received yet. Please complete the Send Money transaction and wait a moment.']);
-                                                    exit();
-                                                }
-                                            }
 
                                             if($trxid == ""){
                                                 echo json_encode(['status' => "false", 'title' => 'Missing Transaction ID', 'message' => 'The Transaction ID field cannot be empty. Please provide a valid Transaction ID.']);
@@ -9724,12 +8890,12 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                 $params = [ ':trx_id' => $trxid ];
 
                                                 $response_Checktransaction = json_decode(getData($db_prefix.'transaction','WHERE trx_id = :trx_id', '* FROM', $params),true);
-                                                if($response_Checktransaction['status'] == true && $response_Checktransaction['response'][0]['id'] != $response_transaction['response'][0]['id']){
+                                                if($response_Checktransaction['status'] == true){
                                                     echo json_encode(['status' => "false", 'title' => 'Duplicate Transaction ID', 'message' => 'This Transaction ID is already exits. Please provide a different one.']);
                                                 }else{
-                                                    $params = [ ':sender_key' => $gateway_info['sender_key'], ':trx_id' => $trxid, ':status' => 'approved' ];
+                                                    $params = [ ':sender_key' => $gateway_info['sender_key'], ':type' => $gateway_info['sender_type'], ':trx_id' => $trxid, ':status' => 'approved' ];
 
-                                                    $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND trx_id = :trx_id AND status = :status', '* FROM', $params), true);
+                                                    $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND type = :type AND trx_id = :trx_id AND status = :status', '* FROM', $params), true);
                                                     if($response_pending_SMSTransaction['status'] == true){
 
                                                         $response_brand = json_decode(getData($db_prefix.'brands',' WHERE brand_id ="'.$response_transaction['response'][0]['brand_id'].'"'),true);
@@ -9828,10 +8994,6 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                                     }
                                                                 }
 
-                                                                if (!empty($all_transactions)) {
-                                                                    do_action('transactions.updated', $all_transactions);
-                                                                }
-
                                                                 echo json_encode(['status' => "true", 'title' => 'Transaction Verified', 'message' => 'The Transaction ID has been successfully verified.']);
                                                             }else{
                                                                 echo json_encode(['status' => "false", 'title' => 'Transaction Not Found', 'message' => 'The Transaction ID you entered could not be verified. Please check the ID and try again after some time.']);
@@ -9917,21 +9079,20 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                 }
                                             }else{
                                                 if(isset($gateway_info['verify_by']) && $gateway_info['verify_by'] == "slip"){
-                                                    $slip = $_FILES['slip'] ?? null;
+                                                    $slip = escape_string($_FILES['slip'] ?? '');
 
-                                                    if(empty($slip) || !isset($slip['tmp_name']) || ($slip['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK){
-                                                        echo json_encode(['status' => "false", 'title' => 'Missing Transaction Slip', 'message' => 'The Transaction slip field cannot be empty. Please upload a valid image or PDF slip.']);
+                                                    if($slip == ""){
+                                                        echo json_encode(['status' => "false", 'title' => 'Missing Transaction Slip', 'message' => 'The Transaction slip field cannot be empty. Please provide a valid Transaction Slip.']);
                                                     }else{
                                                         $response_brand = json_decode(getData($db_prefix.'brands',' WHERE brand_id ="'.$response_transaction['response'][0]['brand_id'].'"'),true);
                                                         if($response_brand['status'] == true){
-                                                            $max_file_size = 10 * 1024 * 1024; // 10MB
+                                                            $max_file_size = 5 * 1024 * 1024; 
                                                             
-                                                            $mediaUpload = json_decode(uploadSlipFile($slip, $max_file_size), true);
-                                                            if(!empty($mediaUpload['status']) && $mediaUpload['status'] == true){
+                                                            $mediaUpload = json_decode(uploadImage($slip ?? null, $max_file_size), true);
+                                                            if($mediaUpload['status'] == true){
                                                                 $trx_slip = $site_url.'pp-media/storage/'.$mediaUpload['file'];
                                                             }else{
-                                                                $uploadMsg = !empty($mediaUpload['message']) ? $mediaUpload['message'] : 'The Transaction slip could not be uploaded. Please provide a valid file.';
-                                                                echo json_encode(['status' => "false", 'title' => 'Invalid Transaction Slip', 'message' => $uploadMsg]);
+                                                                echo json_encode(['status' => "false", 'title' => 'Missing Transaction Slip', 'message' => 'The Transaction slip field cannot be empty. Please provide a valid Transaction Slip.']);
                                                                 exit();
                                                             }
 
@@ -10004,365 +9165,189 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
     }
 
     if(isset($_POST['action-companion'])){
-        if (!function_exists('pp_companion_json_response')) {
-            function pp_companion_json_response(array $data): void {
-                while (ob_get_level() > 0) {
-                    ob_end_clean();
-                }
-                $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                header('Content-Type: application/json; charset=utf-8');
-                header('Content-Length: ' . strlen($json));
-                header('Connection: close');
-                header('Cache-Control: no-cache, no-store, must-revalidate');
-                echo $json;
-                flush();
-                exit();
-            }
-        }
-
-        if (!function_exists('pp_resolve_companion_device')) {
-            function pp_resolve_companion_device($tokenOrOtp, bool $autoCreate = true, array $deviceInfo = []): ?array {
-                global $db_prefix;
-                $tokenOrOtp = trim((string)$tokenOrOtp);
-
-                // 1. Exact match by otp
-                if ($tokenOrOtp !== '') {
-                    $res = json_decode(getData($db_prefix.'device', 'WHERE otp = :val ORDER BY id DESC LIMIT 1', '* FROM', [':val' => $tokenOrOtp]), true);
-                    if (!empty($res['status']) && !empty($res['response'][0])) {
-                        return $res['response'][0];
-                    }
-
-                    // 2. Match by device_id
-                    $res = json_decode(getData($db_prefix.'device', 'WHERE device_id = :val ORDER BY id DESC LIMIT 1', '* FROM', [':val' => $tokenOrOtp]), true);
-                    if (!empty($res['status']) && !empty($res['response'][0])) {
-                        $dev = $res['response'][0];
-                        $devId = $dev['id'];
-                        if ($dev['otp'] !== $tokenOrOtp) {
-                            updateData($db_prefix.'device', ['otp', 'updated_date', 'last_sync'], [$tokenOrOtp, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')], "id = '{$devId}'");
-                            $dev['otp'] = $tokenOrOtp;
-                        }
-                        return $dev;
-                    }
-                }
-
-                // 3. Fallback: match any device in processing state (e.g. user just opened QR code)
-                $res = json_decode(getData($db_prefix.'device', 'WHERE status = "processing" ORDER BY id DESC LIMIT 1', '* FROM'), true);
-                if (!empty($res['status']) && !empty($res['response'][0])) {
-                    $dev = $res['response'][0];
-                    $devId = $dev['id'];
-                    $updateCols = ['status', 'updated_date', 'last_sync'];
-                    $updateVals = ['used', getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
-                    if ($tokenOrOtp !== '') {
-                        $updateCols[] = 'otp';
-                        $updateVals[] = $tokenOrOtp;
-                        $dev['otp'] = $tokenOrOtp;
-                    }
-                    updateData($db_prefix.'device', $updateCols, $updateVals, "id = '{$devId}'");
-                    $dev['status'] = 'used';
-                    return $dev;
-                }
-
-                // 4. Fallback: match most recently active/used device
-                $res = json_decode(getData($db_prefix.'device', 'WHERE status = "used" ORDER BY updated_date DESC, id DESC LIMIT 1', '* FROM'), true);
-                if (!empty($res['status']) && !empty($res['response'][0])) {
-                    $dev = $res['response'][0];
-                    if ($tokenOrOtp !== '' && $dev['otp'] !== $tokenOrOtp) {
-                        $devId = $dev['id'];
-                        updateData($db_prefix.'device', ['otp', 'updated_date', 'last_sync'], [$tokenOrOtp, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')], "id = '{$devId}'");
-                        $dev['otp'] = $tokenOrOtp;
-                    }
-                    return $dev;
-                }
-
-                // 5. Fallback: match ANY device in table
-                $res = json_decode(getData($db_prefix.'device', 'ORDER BY id DESC LIMIT 1', '* FROM'), true);
-                if (!empty($res['status']) && !empty($res['response'][0])) {
-                    $dev = $res['response'][0];
-                    $devId = $dev['id'];
-                    $updateCols = ['status', 'updated_date', 'last_sync'];
-                    $updateVals = ['used', getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
-                    if ($tokenOrOtp !== '') {
-                        $updateCols[] = 'otp';
-                        $updateVals[] = $tokenOrOtp;
-                        $dev['otp'] = $tokenOrOtp;
-                    }
-                    updateData($db_prefix.'device', $updateCols, $updateVals, "id = '{$devId}'");
-                    $dev['status'] = 'used';
-                    return $dev;
-                }
-
-                // 6. If no device exists at all and autoCreate is allowed, auto-provision
-                if ($autoCreate) {
-                    $newDeviceId = generateItemID();
-                    $newOtp = ($tokenOrOtp !== '') ? $tokenOrOtp : generateItemID();
-                    $name = !empty($deviceInfo['name']) ? $deviceInfo['name'] : 'Android Device';
-                    $model = !empty($deviceInfo['model']) ? $deviceInfo['model'] : 'Smartphone';
-                    $android_level = !empty($deviceInfo['android_level']) ? $deviceInfo['android_level'] : 'Android';
-                    $app_version = !empty($deviceInfo['app_version']) ? $deviceInfo['app_version'] : '3.0.2';
-                    $now = getCurrentDatetime('Y-m-d H:i:s');
-
-                    $cols = ['d_id', 'device_id', 'otp', 'name', 'model', 'android_level', 'app_version', 'status', 'created_date', 'updated_date', 'last_sync'];
-                    $vals = ['1', $newDeviceId, $newOtp, $name, $model, $android_level, $app_version, 'used', $now, $now, $now];
-                    insertData($db_prefix.'device', $cols, $vals);
-
-                    $res = json_decode(getData($db_prefix.'device', 'WHERE device_id = :did ORDER BY id DESC LIMIT 1', '* FROM', [':did' => $newDeviceId]), true);
-                    if (!empty($res['status']) && !empty($res['response'][0])) {
-                        return $res['response'][0];
-                    }
-                }
-
-                return null;
-            }
-        }
-
         $action = escape_string($_POST['action-companion'] ?? '');
 
         if($action == ""){
-            pp_companion_json_response(['status' => false, 'title' => 'Oops! Something went wrong', 'message' => 'Your request could not be processed. Please try again.']);
+            echo json_encode(['status' => "false", 'title' => 'Oops! Something went wrong', 'message' => 'Your request could not be processed. Please try again.']);
         }else{
             if($action == "login"){
                 if (!empty($pp_demo_mode)) {
-                    pp_companion_json_response(['status' => false, 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
+                    echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
                 }else{
-                    $onetimepassword = escape_string(trim((string)($_POST['onetimepassword'] ?? $_POST['otp'] ?? $_POST['pass'] ?? '')));
-                    $name = escape_string(trim((string)($_POST['name'] ?? $_POST['deviceName'] ?? $_POST['device_name'] ?? $_POST['device'] ?? '')));
-                    $model = escape_string(trim((string)($_POST['model'] ?? '')));
-                    $android_level = escape_string(trim((string)($_POST['android_level'] ?? $_POST['android_version'] ?? '')));
-                    $app_version = escape_string(trim((string)($_POST['app_version'] ?? '')));
+                    $onetimepassword = escape_string($_POST['onetimepassword'] ?? '');
+                    $name = escape_string($_POST['name'] ?? '');
+                    $model = escape_string($_POST['model'] ?? '');
+                    $android_level = escape_string($_POST['android_level'] ?? '');
+                    $app_version = escape_string($_POST['app_version'] ?? '');
 
-                    $deviceInfo = [
-                        'name' => $name,
-                        'model' => $model,
-                        'android_level' => $android_level,
-                        'app_version' => $app_version
-                    ];
+                    if($onetimepassword == ""){
+                        echo json_encode(['status' => "false", 'title' => 'Incomplete Information', 'message' => 'Please fill in all required fields before proceeding.']);
+                    }else{
+                        $params = [ ':otp' => $onetimepassword ];
 
-                    $device = pp_resolve_companion_device($onetimepassword, true, $deviceInfo);
+                        $response = json_decode(getData($db_prefix.'device','WHERE otp = :otp', '* FROM', $params),true);
+                        if($response['status'] == true){
+                            $otp_new = generateItemID();
 
-                    if ($device) {
-                        $otp_new = generateItemID();
-                        $devDbId = $device['id'];
+                            $columns = ['otp', 'name', 'model', 'android_level', 'app_version', 'status', 'updated_date'];
+                            $values = [$otp_new, $name, $model, $android_level, $app_version, 'used', getCurrentDatetime('Y-m-d H:i:s')];
 
-                        $existingName = trim((string)($device['name'] ?? ''));
-                        if ($name !== '') {
-                            $nameToSave = $name;
-                        } elseif (!empty($existingName) && $existingName !== '--') {
-                            $nameToSave = $existingName;
-                        } elseif (!empty($model)) {
-                            $nameToSave = $model;
-                        } else {
-                            $nameToSave = 'Android Device';
+                            $condition = "id = '".$response['response'][0]['id']."'"; 
+                            
+                            updateData($db_prefix.'device', $columns, $values, $condition);
+
+                            echo json_encode(['status' => "true", 'token' => $otp_new]);
+                        }else{
+                            echo json_encode(['status' => "false", 'title' => 'Invalid Credentials', 'message' => 'Please enter the correct credentials or scan the QR code again.']);
                         }
-
-                        $existingModel = trim((string)($device['model'] ?? ''));
-                        if ($model !== '') {
-                            $modelToSave = $model;
-                        } elseif (!empty($existingModel) && $existingModel !== '--') {
-                            $modelToSave = $existingModel;
-                        } else {
-                            $modelToSave = 'Smartphone';
-                        }
-
-                        $levelToSave = ($android_level !== '') ? $android_level : ((!empty($device['android_level']) && $device['android_level'] !== '--') ? $device['android_level'] : 'Android');
-                        $versionToSave = ($app_version !== '') ? $app_version : ((!empty($device['app_version']) && $device['app_version'] !== '--') ? $device['app_version'] : '3.0.2');
-
-                        $columns = ['otp', 'name', 'model', 'android_level', 'app_version', 'status', 'updated_date', 'last_sync'];
-                        $values = [$otp_new, $nameToSave, $modelToSave, $levelToSave, $versionToSave, 'used', getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
-                        updateData($db_prefix.'device', $columns, $values, "id = '{$devDbId}'");
-
-                        pp_companion_json_response([
-                            'status' => true,
-                            'token' => $otp_new,
-                            'device_token' => $otp_new,
-                            'device_id' => $device['device_id'] ?? '',
-                            'message' => 'Device connected successfully.'
-                        ]);
-                    } else {
-                        pp_companion_json_response(['status' => false, 'title' => 'Invalid Credentials', 'message' => 'Please enter the correct credentials or scan the QR code again.']);
                     }
                 }
             }
 
             if($action == "account-information"){
                 if (!empty($pp_demo_mode)) {
-                    pp_companion_json_response(['status' => false, 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
+                    echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
                 }else{
-                    $token = escape_string(trim((string)($_POST['token'] ?? $_POST['otp'] ?? $_POST['device_token'] ?? '')));
+                    $token = escape_string($_POST['token'] ?? '');
 
-                    $device = pp_resolve_companion_device($token, true);
+                    if($token == ""){
+                        echo json_encode(['status' => "false", 'title' => 'Incomplete Information', 'message' => 'Please fill in all required fields before proceeding.']);
+                    }else{
+                        $params = [ ':otp' => $token, ':status' => 'used' ];
 
-                    if ($device) {
-                        $devDbId = $device['id'];
-                        updateData($db_prefix.'device', ['updated_date', 'last_sync'], [getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')], "id = '{$devDbId}'");
+                        $response = json_decode(getData($db_prefix.'device','WHERE otp = :otp AND status = :status', '* FROM', $params),true);
+                        if($response['status'] == true){
+                            $params = [ ':cookie' => $response['response'][0]['d_id'] ];
 
-                        $adminFound = false;
-                        $responseAdmin = ['status' => false];
-                        $savedDId = $device['d_id'] ?? '';
+                            $responseLog = json_decode(getData($db_prefix.'browser_log','WHERE cookie = :cookie', '* FROM', $params),true);
+                            if($responseLog['status'] == true){
+                                $params = [ ':a_id' => $responseLog['response'][0]['a_id'] ];
+                                
+                                $responseAdmin = json_decode(getData($db_prefix.'admin','WHERE a_id = :a_id', '* FROM', $params),true);
+                                if($responseAdmin['status'] == true){
 
-                        if (!empty($savedDId)) {
-                            $responseLog = json_decode(getData($db_prefix.'browser_log','WHERE cookie = :cookie', '* FROM', [':cookie' => $savedDId]), true);
-                            if($responseLog['status'] == true && !empty($responseLog['response'][0]['a_id'])){
-                                $responseAdmin = json_decode(getData($db_prefix.'admin','WHERE a_id = :a_id', '* FROM', [':a_id' => $responseLog['response'][0]['a_id']]), true);
-                                if ($responseAdmin['status'] == true) {
-                                    $adminFound = true;
+
+                                    $response_result = json_decode(getData($db_prefix.'sms_data',' WHERE source = "app" AND device_id = "'.$response['response'][0]['device_id'].'" AND status NOT IN ("awaiting-review") ORDER BY 1 DESC'),true);
+
+                                    if ($response_result['status'] == true) {
+
+                                        $response = [
+                                            'status' => 'true',
+                                            'fullname' => $responseAdmin['response'][0]['full_name'] ?? '',
+                                            'email'    => $responseAdmin['response'][0]['email'] ?? '',
+                                            'stored_count'   => 0,
+                                            'used_count' => 0,
+                                            'error_count'    => 0,
+                                            'stored'   => [],
+                                            'used' => [],
+                                            'error'    => []
+                                        ];
+
+                                        foreach ($response_result['response'] as $row) {
+                                            $json_status = ($row['status'] === 'approved') ? 'stored' : $row['status'];
+
+                                            $item = [
+                                                'id'        => $row['id'],
+                                                'sender'    => $row['sender'],
+                                                'message'   => $row['message'],
+                                                'reason'   => $row['reason'],
+                                                'simslot'   => $row['simslot'],
+                                                'timestamp' => convertUTCtoUserTZ($row['created_date'], (get_env('geneal-application-settings-default_timezone') === '--' || get_env('geneal-application-settings-default_timezone') === '') ? 'Asia/Dhaka' : get_env('geneal-application-settings-default_timezone'), "M d, Y h:i A"),
+                                                'status'    => $json_status
+                                            ];
+
+                                            switch ($row['status']) {
+                                                case 'approved':
+                                                case 'awaiting-review':
+                                                    $response['stored'][] = $item;
+                                                    $response['stored_count']++;
+                                                    break;
+
+                                                case 'used':
+                                                    $response['used'][] = $item;
+                                                    $response['used_count']++;
+                                                    break;
+
+                                                case 'error':
+                                                    $response['error'][] = $item;
+                                                    $response['error_count']++;
+                                                    break;
+                                            }
+                                        }
+
+                                        echo json_encode($response);
+                                    }else{
+                                        $response = [
+                                            'status' => 'true',
+                                            'fullname' => $responseAdmin['response'][0]['full_name'] ?? '',
+                                            'email'    => $responseAdmin['response'][0]['email'] ?? '',
+                                            'stored_count'   => 0,
+                                            'used_count' => 0,
+                                            'error_count'    => 0,
+                                            'stored'   => [],
+                                            'used' => [],
+                                            'error'    => []
+                                        ];
+
+                                        echo json_encode($response);
+                                    }
+                                }else{
+                                    echo json_encode(['status' => "false", 'title' => 'Authentication Failed', 'message' => 'Please try again or scan the QR code again.']);
                                 }
+                            }else{
+                                echo json_encode(['status' => "false", 'title' => 'Authentication Failed', 'message' => 'Please try again or scan the QR code again.']);
                             }
-
-                            if (!$adminFound) {
-                                $responseAdmin = json_decode(getData($db_prefix.'admin','WHERE a_id = :a_id', '* FROM', [':a_id' => $savedDId]), true);
-                                if ($responseAdmin['status'] == true) {
-                                    $adminFound = true;
-                                }
-                            }
+                        }else{
+                            echo json_encode(['status' => "false", 'title' => 'Authentication Failed', 'message' => 'Please try again or scan the QR code again.']);
                         }
-
-                        if (!$adminFound) {
-                            $responseAdmin = json_decode(getData($db_prefix.'admin','WHERE status = "active" ORDER BY id ASC LIMIT 1', '* FROM'), true);
-                            if ($responseAdmin['status'] == true) {
-                                $adminFound = true;
-                            }
-                        }
-
-                        $adminName = $adminFound ? ($responseAdmin['response'][0]['full_name'] ?? 'PipraPay Admin') : 'PipraPay Admin';
-                        $adminEmail = $adminFound ? ($responseAdmin['response'][0]['email'] ?? 'admin@piprapay.local') : 'admin@piprapay.local';
-
-                        $deviceIdVal = $device['device_id'] ?? '';
-                        $response_result = json_decode(getData($db_prefix.'sms_data',' WHERE source = "app" AND device_id = "'.$deviceIdVal.'" AND status NOT IN ("awaiting-review") ORDER BY 1 DESC'),true);
-
-                        $accountData = [
-                            'status' => true,
-                            'fullname' => $adminName,
-                            'email'    => $adminEmail,
-                            'stored_count'   => 0,
-                            'used_count' => 0,
-                            'error_count'    => 0,
-                            'stored'   => [],
-                            'used' => [],
-                            'error'    => []
-                        ];
-
-                        if ($response_result['status'] == true && !empty($response_result['response'])) {
-                            foreach ($response_result['response'] as $row) {
-                                $json_status = ($row['status'] === 'approved') ? 'stored' : $row['status'];
-
-                                $item = [
-                                    'id'        => $row['id'],
-                                    'sender'    => $row['sender'],
-                                    'message'   => $row['message'],
-                                    'reason'   => $row['reason'],
-                                    'simslot'   => $row['simslot'],
-                                    'timestamp' => convertUTCtoUserTZ($row['created_date'], (get_env('geneal-application-settings-default_timezone') === '--' || get_env('geneal-application-settings-default_timezone') === '') ? 'Asia/Dhaka' : get_env('geneal-application-settings-default_timezone'), "M d, Y h:i A"),
-                                    'status'    => $json_status
-                                ];
-
-                                switch ($row['status']) {
-                                    case 'approved':
-                                    case 'awaiting-review':
-                                        $accountData['stored'][] = $item;
-                                        $accountData['stored_count']++;
-                                        break;
-
-                                    case 'used':
-                                        $accountData['used'][] = $item;
-                                        $accountData['used_count']++;
-                                        break;
-
-                                    case 'error':
-                                        $accountData['error'][] = $item;
-                                        $accountData['error_count']++;
-                                        break;
-                                }
-                            }
-                        }
-
-                        pp_companion_json_response($accountData);
-                    } else {
-                        pp_companion_json_response([
-                            'status' => true,
-                            'fullname' => 'PipraPay Admin',
-                            'email'    => 'admin@piprapay.local',
-                            'stored_count' => 0,
-                            'used_count' => 0,
-                            'error_count' => 0,
-                            'stored' => [],
-                            'used' => [],
-                            'error' => []
-                        ]);
                     }
                 }
             }
 
             if($action == "sms-transmit-bulk"){
                 if (!empty($pp_demo_mode)) {
-                    pp_companion_json_response(['status' => false, 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
+                    echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
                 }else{
-                    $token = escape_string(trim((string)($_POST['token'] ?? $_POST['otp'] ?? $_POST['device_token'] ?? '')));
+                    $token = escape_string($_POST['token'] ?? '');
                     $sms_list_raw = $_POST['sms_list'] ?? '';
 
-                    $device = pp_resolve_companion_device($token, true);
+                    if($token == ""){
+                        echo json_encode(['status' => "false", 'title' => 'Incomplete Information', 'message' => 'Please fill in all required fields before proceeding.']);
+                    }else{
+                        $params = [ ':otp' => $token, ':status' => 'used' ];
 
-                    if ($device) {
-                        if (is_array($sms_list_raw)) {
-                            $sms_list = $sms_list_raw;
-                        } else if (is_string($sms_list_raw)) {
-                            $sms_list = json_decode($sms_list_raw, true) ?? [];
-                        } else {
-                            $sms_list = [];
-                        }
+                        $response = json_decode(getData($db_prefix.'device','WHERE otp = :otp AND status = :status', '* FROM', $params),true);
+                        if($response['status'] == true){
+                            $sms_list = json_decode($sms_list_raw, true);
 
-                        $successCount = 0;
-                        $errorCount = 0;
-                        $device_id = $device['device_id'];
+                            foreach ($sms_list as $sms) {
+                                $id = trim((string)escape_string($sms['id'] ?? ''));
+                                $sender = strtolower((string)trim(escape_string($sms['sender'] ?? '')));
+                                $message = trim((string)escape_string($sms['message'] ?? ''));
+                                $simslot = trim((string)escape_string($sms['simSlot'] ?? ''));
+                                $timestamp = trim((string)escape_string($sms['timestamp'] ?? ''));
+                                
+                                $status = 'approved';
+                                $reason = '--';
 
-                        foreach ($sms_list as $sms) {
-                            $id = trim((string)escape_string($sms['id'] ?? ''));
-                            $sender = strtolower((string)trim(escape_string($sms['sender'] ?? '')));
-                            $message = trim((string)escape_string($sms['message'] ?? ''));
-                            $simslot = trim((string)escape_string($sms['simSlot'] ?? ''));
-                            $timestamp = trim((string)escape_string($sms['timestamp'] ?? ''));
-                            
-                            $status = 'approved';
-                            $reason = '--';
+                                $device_id = $response['response'][0]['device_id'];
 
-                            $senderInfo = senderWhitelist($sender);
-                            if($senderInfo) {
-                                $sender_key = $senderInfo['provider_key'];
-                                $currency = $senderInfo['currency'];
-                                $balance_verify = $senderInfo['balance_verify'];
-                            }else{
-                                $sender_key = '--';
-                                $currency = '--';
-                                $balance_verify = '--';
-                            }
+                                $senderInfo = senderWhitelist($sender);
+                                if($senderInfo) {
+                                    $sender_key = $senderInfo['provider_key'];
+                                    $currency = $senderInfo['currency'];
+                                    $balance_verify = $senderInfo['balance_verify'];
+                                }else{
+                                    $sender_key = '--';
+                                    $currency = '--';
+                                    $balance_verify = '--';
+                                }
 
-                            $result = MFSMessageVerified($sender_key, $message);
+                                $result = MFSMessageVerified($sender_key, $message);
 
-                            if ($result === false) {
-                                $status = 'error';
-                                $reason = 'Invalid or unknown message. Code 101';
-
-                                $columns = ['source', 'device_id', 'sender', 'simslot', 'status', 'message', 'reason', 'created_date', 'updated_date'];
-                                $values = ['app', $device_id, $sender, $simslot, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
-
-                                insertData($db_prefix.'sms_data', $columns, $values);
-
-                                $columns = ['last_sync'];
-                                $values = [getCurrentDatetime('Y-m-d H:i:s')];
-
-                                $condition = "id = '".$device['id']."'"; 
-                                updateData($db_prefix.'device', $columns, $values, $condition);
-                                $errorCount++;
-                            } else {
-                                $type = escape_string($result['type'] ?? '');
-                                $amount = escape_string($result['amount'] ?? '0');
-                                $balance = escape_string($result['balance'] ?? '0');
-                                $phone_number = escape_string($result['sender'] ?? '');
-                                $transaction_id = escape_string($result['trxid'] ?? '');
-                                $datetime = escape_string($result['datetime'] ?? '');
-
-                                if($type == "" || $amount == "" || $phone_number == "" || $transaction_id == ""){
+                                if ($result === false) {
                                     $status = 'error';
-                                    $reason = 'Invalid or unknown message. Code 102';
+                                    $reason = 'Invalid or unknown message. Code 101';
 
                                     $columns = ['source', 'device_id', 'sender', 'simslot', 'status', 'message', 'reason', 'created_date', 'updated_date'];
                                     $values = ['app', $device_id, $sender, $simslot, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
@@ -10372,46 +9357,90 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                     $columns = ['last_sync'];
                                     $values = [getCurrentDatetime('Y-m-d H:i:s')];
 
-                                    $condition = "id = '".$device['id']."'"; 
-                                updateData($db_prefix.'device', $columns, $values, $condition);
-                                    $errorCount++;
-                                    continue;
-                                }
+                                    $condition = "id = '".$response['response'][0]['id']."'"; 
+                                    
+                                    updateData($db_prefix.'device', $columns, $values, $condition);
 
-                                $params = [ ':sender_key' => $sender_key, ':trx_id' => $transaction_id ];
+                                    echo json_encode(['status' => "false", 'title' => 'Invalid or unknown MFS message', 'message' => 'Please fill in all required fields before proceeding.']);
+                                } else {
+                                    $type = escape_string($result['type'] ?? '');
+                                    $amount = escape_string($result['amount'] ?? '0');
+                                    $balance = escape_string($result['balance'] ?? '0');
+                                    $phone_number = escape_string($result['sender'] ?? '');
+                                    $transaction_id = escape_string($result['trxid'] ?? '');
+                                    $datetime = escape_string($result['datetime'] ?? '');
 
-                                $responseSmsData = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND trx_id = :trx_id', '* FROM', $params),true);
-                                if($responseSmsData['status'] == false){
-                                    if($balance_verify == "false"){
-                                        $status = 'approved';
-                                        $reason = '--';
+                                    if($type == "" || $amount == "" || $phone_number == "" || $transaction_id == ""){
+                                        $status = 'error';
+                                        $reason = 'Invalid or unknown message. Code 102';
 
-                                        $columns = ['source', 'device_id', 'sender', 'sender_key', 'simslot', 'number', 'amount', 'currency', 'trx_id', 'balance', 'type', 'status', 'message', 'reason', 'created_date', 'updated_date'];
-                                        $values = ['app', $device_id, $sender, $sender_key, $simslot, $phone_number, money_sanitize($amount), $currency, $transaction_id, money_sanitize($balance), $type, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
+                                        $columns = ['source', 'device_id', 'sender', 'simslot', 'status', 'message', 'reason', 'created_date', 'updated_date'];
+                                        $values = ['app', $device_id, $sender, $simslot, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
 
                                         insertData($db_prefix.'sms_data', $columns, $values);
 
                                         $columns = ['last_sync'];
                                         $values = [getCurrentDatetime('Y-m-d H:i:s')];
 
-                                        $condition = "id = '".$device['id']."'"; 
-                                updateData($db_prefix.'device', $columns, $values, $condition);
-                                        $successCount++;
-                                    }else{
-                                        $response_balance_verification = json_decode(getData($db_prefix.'balance_verification',' WHERE device_id = "'.$device_id.'" AND sender_key = "'.$sender_key.'" AND type = "'.$type.'"'),true);
-                                        if($response_balance_verification['status'] == true){
-                                            if($response_balance_verification['response'][0]['status'] == "active"){
-                                                if($simslot == 1){
-                                                    $bsimslot = 'Sim1';
-                                                }else{
-                                                    $bsimslot = 'Sim2';
-                                                }
+                                        $condition = "id = '".$response['response'][0]['id']."'"; 
+                                        
+                                        updateData($db_prefix.'device', $columns, $values, $condition);
 
-                                                $expected_balance = money_add($response_balance_verification['response'][0]['current_balance'], $amount);
+                                        echo json_encode(['status' => "false", 'title' => 'Invalid or unknown MFS message', 'message' => 'Please fill in all required fields before proceeding.']);
+                                        exit();
+                                    }
 
-                                                if($expected_balance == $balance){
-                                                    if($response_balance_verification['response'][0]['simslot'] !== "Any"){
-                                                        if($response_balance_verification['response'][0]['simslot'] == $bsimslot){
+                                    $params = [ ':sender_key' => $sender_key, ':trx_id' => $transaction_id ];
+
+                                    $responseSmsData = json_decode(getData($db_prefix.'sms_data','WHERE sender_key = :sender_key AND trx_id = :trx_id', '* FROM', $params),true);
+                                    if($responseSmsData['status'] == false){
+                                        if($balance_verify == "false"){
+                                            $status = 'approved';
+                                            $reason = '--';
+
+                                            $columns = ['source', 'device_id', 'sender', 'sender_key', 'simslot', 'number', 'amount', 'currency', 'trx_id', 'balance', 'type', 'status', 'message', 'reason', 'created_date', 'updated_date'];
+                                            $values = ['app', $device_id, $sender, $sender_key, $simslot, $phone_number, money_sanitize($amount), $currency, $transaction_id, money_sanitize($balance), $type, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
+
+                                            insertData($db_prefix.'sms_data', $columns, $values);
+
+                                            $columns = ['last_sync'];
+                                            $values = [getCurrentDatetime('Y-m-d H:i:s')];
+
+                                            $condition = "id = '".$response['response'][0]['id']."'"; 
+                                            
+                                            updateData($db_prefix.'device', $columns, $values, $condition);
+
+                                            echo json_encode(['status' => 'true', 'title' => 'SMS Data Created', 'message' => 'The sms data has been created successfully.']);
+                                        }else{
+                                            $params = [ ':device_id' => $device_id, ':sender_key' => $sender_key, ':type' => $type ];
+
+                                            $response_balance_verification = json_decode(getData($db_prefix.'balance_verification','WHERE device_id = :device_id AND sender_key = :sender_key AND type = :type', '* FROM', $params),true);
+                                            if($response_balance_verification['status'] == true){
+                                                if($response_balance_verification['response'][0]['status'] == "active"){
+                                                    if($simslot == 1){
+                                                        $bsimslot = 'Sim1';
+                                                    }else{
+                                                        $bsimslot = 'Sim2';
+                                                    }
+
+                                                    $expected_balance = money_add($response_balance_verification['response'][0]['current_balance'], $amount);
+
+                                                    if($expected_balance == $balance){
+                                                        if($response_balance_verification['response'][0]['simslot'] !== "Any"){
+                                                            if($response_balance_verification['response'][0]['simslot'] == $bsimslot){
+                                                                $status = 'approved';
+                                                                $reason = '--';
+
+                                                                $columns = ['current_balance', 'updated_date'];
+                                                                $values = [money_sanitize($expected_balance), getCurrentDatetime('Y-m-d H:i:s')];
+                                                                $condition = "id = '".$response_balance_verification['response'][0]['id']."'"; 
+                                                                
+                                                                updateData($db_prefix.'balance_verification', $columns, $values, $condition);
+                                                            }else{
+                                                                $status = 'awaiting-review';
+                                                                $reason = 'SIM slot and expected slot do not match. Recorded: '.$bsimslot.'; Expected: '.$response_balance_verification['response'][0]['simslot'];
+                                                            }
+                                                        }else{
                                                             $status = 'approved';
                                                             $reason = '--';
 
@@ -10420,47 +9449,57 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                             $condition = "id = '".$response_balance_verification['response'][0]['id']."'"; 
                                                             
                                                             updateData($db_prefix.'balance_verification', $columns, $values, $condition);
-                                                        }else{
-                                                            $status = 'awaiting-review';
-                                                            $reason = 'SIM slot and expected slot do not match. Recorded: '.$bsimslot.'; Expected: '.$response_balance_verification['response'][0]['simslot'];
                                                         }
-                                                    }else{
-                                                        $status = 'approved';
-                                                        $reason = '--';
 
-                                                        $columns = ['current_balance', 'updated_date'];
-                                                        $values = [money_sanitize($expected_balance), getCurrentDatetime('Y-m-d H:i:s')];
-                                                        $condition = "id = '".$response_balance_verification['response'][0]['id']."'"; 
+                                                        $columns = ['source', 'device_id', 'sender', 'sender_key', 'simslot', 'number', 'amount', 'currency', 'trx_id', 'balance', 'type', 'status', 'message', 'reason', 'created_date', 'updated_date'];
+                                                        $values = ['app', $device_id, $sender, $sender_key, $simslot, $phone_number, money_sanitize($amount), $currency, $transaction_id, money_sanitize($balance), $type, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
+
+                                                        insertData($db_prefix.'sms_data', $columns, $values);
+
+                                                        $columns = ['last_sync'];
+                                                        $values = [getCurrentDatetime('Y-m-d H:i:s')];
+
+                                                        $condition = "id = '".$response['response'][0]['id']."'"; 
                                                         
-                                                        updateData($db_prefix.'balance_verification', $columns, $values, $condition);
-                                                    }
+                                                        updateData($db_prefix.'device', $columns, $values, $condition);
 
-                                                    $columns = ['source', 'device_id', 'sender', 'sender_key', 'simslot', 'number', 'amount', 'currency', 'trx_id', 'balance', 'type', 'status', 'message', 'reason', 'created_date', 'updated_date'];
-                                                    $values = ['app', $device_id, $sender, $sender_key, $simslot, $phone_number, money_sanitize($amount), $currency, $transaction_id, money_sanitize($balance), $type, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
+                                                        echo json_encode(['status' => 'true', 'title' => 'SMS Data Created', 'message' => 'The sms data has been created successfully.']);
+                                                    }else{
+                                                        $reasons = [];
 
-                                                    insertData($db_prefix.'sms_data', $columns, $values);
+                                                        $status = 'awaiting-review';
+                                                        $reasons[] = 'SMS balance and expected balance do not match. Recorded SMS balance: '.money_round($balance).'; Expected balance: '.money_round($expected_balance);
 
-                                                    $columns = ['last_sync'];
-                                                    $values = [getCurrentDatetime('Y-m-d H:i:s')];
+                                                        if($response_balance_verification['response'][0]['simslot'] !== "Any"){
+                                                            if($response_balance_verification['response'][0]['simslot'] == $bsimslot){
 
-                                                    $condition = "id = '".$device['id']."'"; 
-                                updateData($db_prefix.'device', $columns, $values, $condition);
-                                                    $successCount++;
-                                                }else{
-                                                    $reasons = [];
-                                                    $status = 'awaiting-review';
-                                                    $reasons[] = 'SMS balance and expected balance do not match. Recorded SMS balance: '.money_round($balance).'; Expected balance: '.money_round($expected_balance);
-
-                                                    if($response_balance_verification['response'][0]['simslot'] !== "Any"){
-                                                        if($response_balance_verification['response'][0]['simslot'] == $bsimslot){
-
-                                                        }else{
-                                                            $status = 'awaiting-review';
-                                                            $reasons[] = 'SIM slot and expected slot do not match. Recorded: '.$bsimslot.'; Expected: '.$response_balance_verification['response'][0]['simslot'];
+                                                            }else{
+                                                                $status = 'awaiting-review';
+                                                                $reasons[] = 'SIM slot and expected slot do not match. Recorded: '.$bsimslot.'; Expected: '.$response_balance_verification['response'][0]['simslot'];
+                                                            }
                                                         }
-                                                    }
 
-                                                    $reason = implode(' | ', $reasons);
+                                                        $reason = implode(' | ', $reasons);
+
+                                                        $columns = ['source', 'device_id', 'sender', 'sender_key', 'simslot', 'number', 'amount', 'currency', 'trx_id', 'balance', 'type', 'status', 'message', 'reason', 'created_date', 'updated_date'];
+                                                        $values = ['app', $device_id, $sender, $sender_key, $simslot, $phone_number, money_sanitize($amount), $currency, $transaction_id, money_sanitize($balance), $type, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
+
+                                                        insertData($db_prefix.'sms_data', $columns, $values);
+
+                                                        $columns = ['last_sync'];
+                                                        $values = [getCurrentDatetime('Y-m-d H:i:s')];
+
+                                                        $condition = "id = '".$response['response'][0]['id']."'"; 
+                                                        
+                                                        updateData($db_prefix.'device', $columns, $values, $condition);
+
+                                                        reconcileByLongestChain($device_id, $sender_key, $type);
+
+                                                        echo json_encode(['status' => 'true', 'title' => 'SMS Data Created', 'message' => 'The sms data has been created successfully.']);
+                                                    }
+                                                }else{
+                                                    $status = 'approved';
+                                                    $reason = '--';
 
                                                     $columns = ['source', 'device_id', 'sender', 'sender_key', 'simslot', 'number', 'amount', 'currency', 'trx_id', 'balance', 'type', 'status', 'message', 'reason', 'created_date', 'updated_date'];
                                                     $values = ['app', $device_id, $sender, $sender_key, $simslot, $phone_number, money_sanitize($amount), $currency, $transaction_id, money_sanitize($balance), $type, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
@@ -10470,11 +9509,11 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                     $columns = ['last_sync'];
                                                     $values = [getCurrentDatetime('Y-m-d H:i:s')];
 
-                                                    $condition = "id = '".$device['id']."'"; 
-                                updateData($db_prefix.'device', $columns, $values, $condition);
+                                                    $condition = "id = '".$response['response'][0]['id']."'"; 
+                                                    
+                                                    updateData($db_prefix.'device', $columns, $values, $condition);
 
-                                                    reconcileByLongestChain($device_id, $sender_key, $type);
-                                                    $successCount++;
+                                                    echo json_encode(['status' => 'true', 'title' => 'SMS Data Created', 'message' => 'The sms data has been created successfully.']);
                                                 }
                                             }else{
                                                 $status = 'approved';
@@ -10488,109 +9527,111 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                                 $columns = ['last_sync'];
                                                 $values = [getCurrentDatetime('Y-m-d H:i:s')];
 
-                                                $condition = "id = '".$device['id']."'"; 
-                                updateData($db_prefix.'device', $columns, $values, $condition);
-                                                $successCount++;
+                                                $condition = "id = '".$response['response'][0]['id']."'"; 
+                                                
+                                                updateData($db_prefix.'device', $columns, $values, $condition);
+
+                                                echo json_encode(['status' => 'true', 'title' => 'SMS Data Created', 'message' => 'The sms data has been created successfully.']);
                                             }
-                                        }else{
-                                            $status = 'approved';
-                                            $reason = '--';
-
-                                            $columns = ['source', 'device_id', 'sender', 'sender_key', 'simslot', 'number', 'amount', 'currency', 'trx_id', 'balance', 'type', 'status', 'message', 'reason', 'created_date', 'updated_date'];
-                                            $values = ['app', $device_id, $sender, $sender_key, $simslot, $phone_number, money_sanitize($amount), $currency, $transaction_id, money_sanitize($balance), $type, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
-
-                                            insertData($db_prefix.'sms_data', $columns, $values);
-
-                                            $columns = ['last_sync'];
-                                            $values = [getCurrentDatetime('Y-m-d H:i:s')];
-
-                                            $condition = "id = '".$device['id']."'"; 
-                                updateData($db_prefix.'device', $columns, $values, $condition);
-                                            $successCount++;
                                         }
+                                    }else{
+                                        $status = 'error';
+                                        $reason = 'Duplicate message. Code 103';
+
+                                        $columns = ['source', 'device_id', 'sender', 'simslot', 'status', 'message', 'reason', 'created_date', 'updated_date'];
+                                        $values = ['app', $device_id, $sender, $simslot, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
+
+                                        insertData($db_prefix.'sms_data', $columns, $values);
+
+                                        $columns = ['last_sync'];
+                                        $values = [getCurrentDatetime('Y-m-d H:i:s')];
+
+                                        $condition = "id = '".$response['response'][0]['id']."'"; 
+                                        
+                                        updateData($db_prefix.'device', $columns, $values, $condition);
+
+                                        echo json_encode(['status' => 'false', 'title' => 'Duplicate Transaction', 'message' => 'The provided Transaction ID already exists in our system.']); 
                                     }
-                                }else{
-                                    $status = 'error';
-                                    $reason = 'Duplicate message. Code 103';
-
-                                    $columns = ['source', 'device_id', 'sender', 'simslot', 'status', 'message', 'reason', 'created_date', 'updated_date'];
-                                    $values = ['app', $device_id, $sender, $simslot, $status, $message, $reason, getCurrentDatetime('Y-m-d H:i:s'), getCurrentDatetime('Y-m-d H:i:s')];
-
-                                    insertData($db_prefix.'sms_data', $columns, $values);
-
-                                    $columns = ['last_sync'];
-                                    $values = [getCurrentDatetime('Y-m-d H:i:s')];
-
-                                    $condition = "id = '".$device['id']."'"; 
-                                updateData($db_prefix.'device', $columns, $values, $condition);
-                                    $errorCount++;
                                 }
                             }
+                        }else{
+                            echo json_encode(['status' => "false", 'title' => 'Authentication Failed', 'message' => 'Please try again or scan the QR code again.']);
                         }
-
-                        pp_companion_json_response([
-                            'status' => true,
-                            'title' => 'SMS Data Synchronized',
-                            'message' => 'Processed ' . count($sms_list) . ' message(s). Success: ' . $successCount . ', Skipped/Error: ' . $errorCount
-                        ]);
-                    }else{
-                        pp_companion_json_response([
-                            'status' => true,
-                            'title' => 'SMS Data Synchronized',
-                            'message' => 'Processed 0 message(s).'
-                        ]);
                     }
                 }
             }
 
+
             if($action == "sms-transmit-sender"){
                 if (!empty($pp_demo_mode)) {
-                    pp_companion_json_response(['status' => false, 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
+                    echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
                 }else{
-                    // Always return whitelisted senders so companion app has list ready immediately
-                    $senders = senderWhitelist(null, null, 'senders');
-                    if (empty($senders)) {
-                        $senders = ['bKash', 'Nagad', 'Rocket', 'Upay'];
-                    }
+                    $token = escape_string($_POST['token'] ?? '');
 
-                    pp_companion_json_response([
-                        'status' => true,
-                        'senders' => $senders
-                    ]);
+                    if($token == ""){
+                        echo json_encode(['status' => "false", 'title' => 'Incomplete Information', 'message' => 'Please fill in all required fields before proceeding.']);
+                    }else{
+                        $params = [ ':otp' => $token, ':status' => 'used' ];
+
+                        $response = json_decode(getData($db_prefix.'device','WHERE otp = :otp AND status = :status', '* FROM', $params),true);
+                        if($response['status'] == true){
+                            $senders = senderWhitelist(null, null, 'senders');
+
+                            echo json_encode(["status" => "true","senders" => $senders], JSON_PRETTY_PRINT);
+                        }else{
+                            echo json_encode(['status' => "false", 'title' => 'Authentication Failed', 'message' => 'Please try again or scan the QR code again.']);
+                        }
+                    }
                 }
             }
 
             if($action == "delete-sms-data"){
                 if (!empty($pp_demo_mode)) {
-                    pp_companion_json_response(['status' => false, 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
+                    echo json_encode(['status' => "false", 'title' => 'Demo Restriction', 'message' => 'This feature is disabled in the demo version.']);
                 }else{
-                    $token = escape_string(trim((string)($_POST['token'] ?? $_POST['otp'] ?? $_POST['device_token'] ?? '')));
+                    $token = escape_string($_POST['token'] ?? '');
                     $stored = escape_string($_POST['stored'] ?? '');
                     $used = escape_string($_POST['used'] ?? '');
                     $error = escape_string($_POST['error'] ?? '');
 
-                    $device = pp_resolve_companion_device($token, true);
+                    if($token == ""){
+                        echo json_encode(['status' => "false", 'title' => 'Incomplete Information', 'message' => 'Please fill in all required fields before proceeding.']);
+                    }else{
+                        $params = [ ':otp' => $token, ':status' => 'used' ];
 
-                    if ($device) {
-                        $devId = $device['device_id'];
+                        $response = json_decode(getData($db_prefix.'device','WHERE otp = :otp AND status = :status', '* FROM', $params),true);
+                        if($response['status'] == true){
+                            if($stored == "yes"){
+                                $condition = "device_id = '".$response['response'][0]['device_id']."' AND status = 'approved'"; 
+                                
+                                deleteData($db_prefix.'sms_data', $condition);
 
-                        if($stored == "yes"){
-                            deleteData($db_prefix.'sms_data', "device_id = '{$devId}' AND status = 'approved'");
-                            deleteData($db_prefix.'sms_data', "device_id = '{$devId}' AND status = 'awaiting-review'");
-                        }
+                                $condition = "device_id = '".$response['response'][0]['device_id']."' AND status = 'awaiting-review'"; 
+                                
+                                deleteData($db_prefix.'sms_data', $condition);
+                            }
 
-                        if($used == "yes"){
-                            deleteData($db_prefix.'sms_data', "device_id = '{$devId}' AND status = 'used'");
-                        }
+                            if($used == "yes"){
+                                $condition = "device_id = '".$response['response'][0]['device_id']."' AND status = 'used'"; 
+                                
+                                deleteData($db_prefix.'sms_data', $condition);
+                            }
 
-                        if($error == "yes"){
-                            deleteData($db_prefix.'sms_data', "device_id = '{$devId}' AND status = 'error'");
+                            if($error == "yes"){
+                                $condition = "device_id = '".$response['response'][0]['device_id']."' AND status = 'error'"; 
+                                
+                                deleteData($db_prefix.'sms_data', $condition);
+                            }
+
+                            echo json_encode(['status' => "true", 'title' => 'Deletion Successful', 'message' => 'The selected data has been deleted successfully.']);
+                        }else{
+                            echo json_encode(['status' => "false", 'title' => 'Authentication Failed', 'message' => 'Please try again or scan the QR code again.']);
                         }
                     }
-
-                    pp_companion_json_response(['status' => true, 'title' => 'Deletion Successful', 'message' => 'The selected data has been deleted successfully.']);
                 }
             }
+
+
         }
         exit();
     }
@@ -10615,17 +9656,17 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
 ?> 
             <script>
                 function initPendingTrs(){
-                    var el = document.querySelector(".nav-item-transaction .bg-danger");
-                    if (el) {
-                        <?php if($initPendingTrscount == 0){ ?>
-                           el.style.display = 'none';
-                           el.classList.add('d-none');
-                        <?php }else{ ?>
-                           el.style.display = '';
-                           el.classList.remove('d-none');
-                           el.innerHTML = '<?= $initPendingTrscount ?>';
-                        <?php } ?>
-                    }
+                    <?php
+                        if($initPendingTrscount == 0){
+                    ?>
+                           document.querySelector(".nav-item-transaction .bg-danger").style.display = 'none';
+                    <?php
+                        }else{
+                    ?>
+                           document.querySelector(".nav-item-transaction .bg-danger").innerHTML = '<?= $initPendingTrscount ?>';
+                    <?php
+                        }
+                    ?>
                 }
                 initPendingTrs();
             </script>
@@ -10648,3 +9689,4 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
         exit;
 
     }
+

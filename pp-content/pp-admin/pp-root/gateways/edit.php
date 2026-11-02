@@ -65,18 +65,6 @@
                             'placeholder' => 'Enter mobile number'
                         ];
                         $extraFields[] = [
-                            'name'  => 'verification_method',
-                            'label' => 'Payment Verification Method',
-                            'type'  => 'select',
-                            'options' => [
-                                'trx_id' => 'Verify using Transaction ID (Customer enters TrxID manually)',
-                                'phone_number' => 'Verify using Phone Number (Customer inputs Sender Number & SMS Auto-verifies)',
-                            ],
-                            'value' => 'trx_id',
-                            'required' => true,
-                            'multiple' => false,
-                        ];
-                        $extraFields[] = [
                             'name'  => 'pending_payment',
                             'label' => 'Allow Pending Payment?',
                             'type'  => 'select',
@@ -345,38 +333,34 @@
                                 <div class="form-group">
                                     <label class="form-label">Primary Color <span class="text-danger">*</span></label>
                                     <div class="form-control-wrap">
-                                        <input type="color" class="form-control" name="primary_color" value="<?php echo $response_gateway['response'][0]['primary_color']?>" placeholder="Enter gateway name" required="" readonly> 
+                                        <input type="color" class="form-control" name="primary_color" value="<?php echo $response_gateway['response'][0]['primary_color']?>" required="">
                                     </div>
                                 </div>
                             </div>
-
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label class="form-label">Text Color <span class="text-danger">*</span></label>
                                     <div class="form-control-wrap">
-                                        <input type="color" class="form-control" name="text_color" value="<?php echo $response_gateway['response'][0]['text_color']?>" placeholder="Enter display name" required=""> 
+                                        <input type="color" class="form-control" name="text_color" value="<?php echo $response_gateway['response'][0]['text_color']?>" required="">
                                     </div>
                                 </div>
                             </div>
-
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label class="form-label">Button Color <span class="text-danger">*</span></label>
                                     <div class="form-control-wrap">
-                                        <input type="color" class="form-control" name="btn_color" value="<?php echo $response_gateway['response'][0]['btn_color']?>" placeholder="Enter display name" required=""> 
+                                        <input type="color" class="form-control" name="btn_color" value="<?php echo $response_gateway['response'][0]['btn_color']?>" required="">
                                     </div>
                                 </div>
                             </div>
-
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label class="form-label">Button Text Color <span class="text-danger">*</span></label>
                                     <div class="form-control-wrap">
-                                        <input type="color" class="form-control" name="btn_text_color" value="<?php echo $response_gateway['response'][0]['btn_text_color']?>" placeholder="Enter display name" required=""> 
+                                        <input type="color" class="form-control" name="btn_text_color" value="<?php echo $response_gateway['response'][0]['btn_text_color']?>" required="">
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </div>
@@ -435,7 +419,8 @@
                                                 break;
 
                                             case 'textarea':
-                                                echo "<textarea class='form-control' name='{$field['name']}' placeholder='".($field['placeholder'] ?? '')."' ".(!empty($field['required']) ? 'required' : '').">".htmlspecialchars($value)."</textarea>";
+                                                $readonly = !empty($field['readonly']) ? 'readonly' : '';
+                                                echo "<textarea class='form-control' name='{$field['name']}' placeholder='".($field['placeholder'] ?? '')."' ".(!empty($field['required']) ? 'required' : '')." $readonly>".htmlspecialchars($value)."</textarea>";
                                                 break;
 
                                             case 'select':
@@ -521,6 +506,49 @@
         </div>
     </div>
 </div>
+
+<script>
+// Transform color pickers → hex input + color picker
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.card').forEach(function(card) {
+        var title = card.querySelector('.card-title');
+        if (!title || title.textContent.trim() !== 'Colors') return;
+        card.querySelectorAll('input[type=color]').forEach(function(ci) {
+            var wrap = ci.closest('.form-control-wrap');
+            if (!wrap) return;
+            ci.style.cssText = 'width:38px;height:38px;min-width:38px;padding:2px;border:1px solid #d0d5dd;border-radius:4px;cursor:pointer;flex-shrink:0;';
+            ci.removeAttribute('class');
+            var hi = document.createElement('input');
+            hi.type = 'text';
+            hi.className = 'form-control';
+            hi.name = ci.name + '_hex';
+            hi.maxLength = 7;
+            hi.value = ci.value;
+            hi.style.fontFamily = 'monospace';
+            hi.style.flex = '1';
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;';
+            row.appendChild(hi);
+            row.appendChild(ci);
+            wrap.innerHTML = '';
+            wrap.appendChild(row);
+            ci.addEventListener('input', function() { hi.value = this.value; });
+            function apply() {
+                var v = hi.value.trim();
+                if (v.charAt(0) !== '#') v = '#' + v;
+                if (/^#[0-9a-fA-F]{6}$/.test(v)) { ci.value = v; hi.value = v; }
+            }
+            hi.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+            hi.addEventListener('blur', apply);
+            hi.addEventListener('input', function() {
+                var v = this.value.trim();
+                if (v.charAt(0) !== '#') v = '#' + v;
+                if (/^#[0-9a-fA-F]{6}$/.test(v)) ci.value = v;
+            });
+        });
+    });
+});
+</script>
 
 
 <script data-cfasync="false">
@@ -678,3 +706,8 @@
         });
     });
 </script>
+
+<?php if ($slug === 'bangla-qr'): ?>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="<?= $site_url ?>pp-content/pp-modules/pp-gateways/bangla-qr/assets/admin-qr-decode.js"></script>
+<?php endif; ?>
