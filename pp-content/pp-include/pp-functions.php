@@ -2801,161 +2801,426 @@
                 $instructions = $gateway->instructions($data);
             }
 
-            if(isset($instructions)){
-                echo '<ol class="payment-instructions">';
+            $vMethodCheck = $data['options']['verification_method'] ?? 'trx_id';
 
-                $rowli = 0;
-
-                foreach ($instructions as $step) {
-                    $rowli = $rowli+1;
-
-                    // Resolve language directly
-                    $text = $lang[$step['text']] ?? $step['text'];
-
-                    // Replace variables
-                    if (!empty($step['vars'])) {
-                        foreach ($step['vars'] as $k => $v) {
-                            $text = str_replace($k, '<span class="dynamic-value">'.$v.'</span>', $text);
-                        }
-                    }
-
-                    echo '<li class="li-'.$rowli.'">';
-                    echo ($step['icon'] == "") ? '<div class="dot"></div>' : $step['icon'];
-
-                    echo '<p>';
-                    echo $text;
-
-                    /* Copy button */
-                    if (!empty($step['copy']) && isset($step['value'])) {
-                        echo ' <span class="button-icon"
-                            onclick="copy_value(\'' . htmlspecialchars($step['value'], ENT_QUOTES) . '\')">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                                <path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/>
-                                <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/>
-                            </svg>
-                        </span>';
-                    }
-
-                    /* Action button */
-                    if (!empty($step['action'])) {
-                        $action = $step['action'];
-
-                        if ($action['type'] === 'image' && !empty($action['value'])) {
-                            echo ' <span class="button-icon"
-                                onclick="pp_show_image(\''.htmlspecialchars($action['value'], ENT_QUOTES).'\')">
-                                '.$action['label'].'
-                            </span>';
-                        }else{
-                            echo '<style>.li-'.$rowli.'{display: none !important;}</style>';
-                        }
-                    }
-
-                    echo '</p>';
-                    echo '</li>';
-
-                }
-
-                echo '</ol>';
+            if ($vMethodCheck === 'phone_number') {
+                $brandName = htmlspecialchars($data['brand']['brand_name'] ?? $data['brand']['name'] ?? 'PipraPay Merchant', ENT_QUOTES);
+                $refNo = htmlspecialchars($data['transaction']['ref'] ?? '', ENT_QUOTES);
+                $amountFormatted = number_format((float)($data['transaction']['amount'] ?? 0), 2);
 
                 echo '
-                    <div id="pp-image-modal" class="pp-modal" style="display:none;">
-                        <div class="pp-modal-content">
-                            <span class="pp-close" onclick="pp_close_image()">&times;</span>
-                            <div class="pp-model-image-b"><img id="pp-modal-image" src="" alt="Preview"></div>
+                <div id="pp-step1-account-wrapper" class="card shadow-sm border-0 my-3" style="max-width: 440px; margin: 0 auto; overflow: hidden; border-radius: 12px;">
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-white border-bottom">
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size: 15px;">'.$brandName.'</div>
+                            <div class="text-muted small">Inv: '.$refNo.'</div>
                         </div>
+                        <div class="fw-bold text-dark" style="font-size: 18px;">৳'.$amountFormatted.'</div>
                     </div>
-
-                    <script data-cfasync="false">
-                        function pp_show_image(src) {
-                            const modal = document.getElementById("pp-image-modal");
-                            const img = document.getElementById("pp-modal-image");
-
-                            img.src = src;
-                            modal.style.display = "flex";
-                        }
-
-                        function pp_close_image() {
-                            document.getElementById("pp-image-modal").style.display = "none";
-                        }
-                    </script>
+                    <!-- Step Progress Indicator -->
+                    <div class="px-3 py-2 bg-light border-bottom d-flex align-items-center justify-content-between" style="font-size: 11px;">
+                        <span class="badge rounded-pill px-2.5 py-1 text-white fw-bold" style="background: #e2136e;">Step 1 of 2</span>
+                        <span class="fw-bold text-secondary">Enter Account Number ➔ Next Step</span>
+                    </div>
+                    <div class="p-4 text-center text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%);">
+                        <h6 class="fw-bold mb-3 text-white" style="letter-spacing: 0.5px; font-size: 16px;">Your bKash / Mobile Banking Account Number</h6>
+                        <div class="mb-3">
+                            <input type="tel" id="pp-step1-mobile-input" class="form-control form-control-lg text-center fw-bold" placeholder="e.g 01XXXXXXXXX" style="height: 48px; border-radius: 8px; font-size: 18px; color: #333; background: #fff; border: none; letter-spacing: 1px;" maxlength="11" oninput="pp_check_step1_validity()" />
+                        </div>
+                        <p class="small text-white-50 mb-0">Confirm and proceed, terms & conditions</p>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
+                        <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="window.history.back()">Cancel</button>
+                        <button type="button" id="pp-step1-confirm-btn" class="btn btn-secondary px-4 rounded-pill fw-bold text-muted" disabled style="opacity: 0.7; cursor: not-allowed; background: #e9ecef; border-color: #ced4da; color: #6c757d;" onclick="pp_proceed_to_step2()">Confirm</button>
+                    </div>
+                </div>
                 ';
             }
 
-            if(isset($gateway_info)){
-                if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
-                    echo '
-                        <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
-                            <input type="hidden" name="action-v2" value="transaction-verify">
-                            <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
-                            <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
+            $step2Style = ($vMethodCheck === 'phone_number') ? 'style="display:none;"' : '';
+            echo '<div id="pp-step2-instructions-wrapper" '.$step2Style.'>';
 
-                            <div class="form-group  mt-3" style="display: none">
-                                <label class="form-label">'.$data['lang']['mobile_number'].'</label>
-                                <div class="form-control-wrap">
-                                    <input type="text" class="form-control" name="mobile_number" placeholder="'.$data['lang']['mobile_number'].'"> 
+            if ($vMethodCheck === 'phone_number') {
+                $brandName = htmlspecialchars($data['brand']['brand_name'] ?? $data['brand']['name'] ?? 'PipraPay Merchant', ENT_QUOTES);
+                $refNo = htmlspecialchars($data['transaction']['ref'] ?? '', ENT_QUOTES);
+                $amountFormatted = number_format((float)($data['transaction']['amount'] ?? 0), 2);
+                $targetNumber = htmlspecialchars($data['options']['number'] ?? $data['options']['mobile_number'] ?? $data['options']['account_number'] ?? '01706016565', ENT_QUOTES);
+                $numberType = htmlspecialchars($data['options']['number_type'] ?? 'PERSONAL NUMBER', ENT_QUOTES);
+
+                echo '
+                <div class="card shadow-sm border-0 my-3" style="max-width: 440px; margin: 0 auto; overflow: hidden; border-radius: 12px;">
+                    <!-- Top Header -->
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-white border-bottom">
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size: 15px;">'.$brandName.'</div>
+                            <div class="text-muted small">Inv: '.$refNo.'</div>
+                        </div>
+                        <div class="fw-bold text-dark" style="font-size: 18px;">৳'.$amountFormatted.'</div>
+                    </div>
+                    <!-- Step Progress Indicator -->
+                    <div class="px-3 py-2 bg-light border-bottom d-flex align-items-center justify-content-between" style="font-size: 11px;">
+                        <span class="badge rounded-pill px-2.5 py-1 text-white fw-bold" style="background: #e2136e;">Step 2 of 2</span>
+                        <span class="fw-bold text-success">✓ Account Saved ➔ Auto Verifying</span>
+                    </div>
+
+                    <!-- Pink Body -->
+                    <div class="p-3 text-white" style="background: linear-gradient(135deg, #e2136e 0%, #d11062 100%); font-size: 13px;">
+                        <!-- Target Number Box -->
+                        <div class="p-2 mb-3 rounded d-flex justify-content-between align-items-center bg-white shadow-sm" style="border: 1px solid #fcd6e5;">
+                            <div>
+                                <div class="fw-bold" style="font-size: 10px; letter-spacing: 1px; color: #e2136e !important; text-transform: uppercase;">'.$numberType.'</div>
+                                <div class="fw-bold" style="font-size: 20px; letter-spacing: 1px; color: #1e293b !important;">'.$targetNumber.'</div>
+                            </div>
+                            <button type="button" id="pp-copy-num-btn" class="btn btn-sm shadow-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5" onclick="copy_value(\''.$targetNumber.'\'); if(typeof pp_mark_copied === \'function\') pp_mark_copied(this);" title="Copy Number" style="background: #e2136e !important; color: #ffffff !important; border: none !important; font-size: 12px; cursor: pointer;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>
+                                <span style="color: #ffffff !important;">Copy</span>
+                            </button>
+                        </div>
+
+                        <!-- Instruction Steps -->
+                        <div class="mb-2 d-flex align-items-center gap-2">
+                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important;">1</span>
+                            <span class="fw-semibold" style="color: #ffffff !important;">উপরে দেওয়া নম্বরটি কপি করুন</span>
+                        </div>
+                        <div class="mb-2 d-flex align-items-center gap-2">
+                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important;">2</span>
+                            <span class="fw-semibold" style="color: #ffffff !important;">বিকাশ অ্যাপ ওপেন করুন অথবা *247# ডায়াল করুন</span>
+                        </div>
+
+                        <!-- bKash Send Money Illustration -->
+                        <div class="my-3 p-2 text-center position-relative shadow" style="max-width: 270px; margin: 0 auto; border-radius: 12px; background: #ffffff !important; border: 1px solid #f1f5f9;">
+                            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                <span class="badge rounded-pill px-2 py-1 text-white fw-bold" style="font-size: 10px; background: #e2136e !important;">bKash</span>
+                                <small class="fw-bold" style="font-size: 10px; color: #475569 !important;">Send Money / সেন্ড মানি</small>
+                            </div>
+                            <div class="p-2 border rounded d-flex align-items-center justify-content-center gap-2" style="background: #fff0f5 !important; border-color: #fbcfe8 !important;">
+                                <div class="p-1.5 rounded-circle bg-white shadow-sm border d-flex align-items-center justify-content-center" style="border-color: #e2136e !important;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e2136e" stroke-width="2.8"><path d="M12 5v14M5 12h14"/></svg>
+                                </div>
+                                <div class="text-start">
+                                    <div class="fw-bold" style="font-size: 13px; color: #be185d !important;">সেন্ড মানি</div>
+                                    <div class="fw-semibold" style="font-size: 10px; color: #64748b !important;">Send Money</div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="form-group  mt-3">
+                        <div class="mb-3 d-flex align-items-start gap-2">
+                            <span class="badge rounded-circle bg-white fw-bold shadow-sm" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #e2136e !important; flex-shrink: 0; margin-top: 2px;">3</span>
+                            <span style="font-size: 11.5px; opacity: 0.98; color: #ffffff !important;">নির্ধারিত নম্বরে সঠিক পরিমাণ টাকা পাঠিয়ে সেন্ড মানি/ক্যাশ আউট এর পর অটো ভেরিফিকেশনের জন্য কিছু সময় অপেক্ষা করুন, যেকোনো সমস্যায় সাপোর্ট নিন।</span>
+                        </div>
+
+                        <!-- Session Countdown Timer & Status -->
+                        <div class="mt-3 pt-2 border-top border-white-50 text-center">
+                            <div class="small fw-bold text-white mb-1">◆ পেমেন্ট সম্পন্ন হলে কিছু সময় অপেক্ষা করুন...</div>
+                            <div class="small text-white-50">Session expires in <span id="pp-timer" class="fw-bold text-white">05:00</span></div>
+                        </div>
+
+                        <!-- Manual TrxID fallback field (shows after timeout) -->
+                        <div id="pp-trxid-fallback-wrapper" class="mt-3 p-2 bg-white rounded text-dark" style="display: none;">
+                            <label class="form-label small fw-bold mb-1 text-danger">Transaction ID দিয়ে ভেরিফাই করুন:</label>
+                            <input type="text" id="pp-manual-trxid-input" class="form-control text-center fw-bold text-uppercase mb-2" placeholder="e.g. 9KHMRFAY5P" />
+                            <small class="text-muted d-block" style="font-size: 10px;">অটো ভেরিফাই না হলে বিকাশ থেকে প্রাপ্ত TrxID প্রদান করুন</small>
+                        </div>
+                    </div>
+
+                    <!-- Hidden Form & Footer -->
+                    <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="action-v2" value="transaction-verify">
+                        <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
+                        <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
+                        <input type="hidden" id="pp-step2-mobile-input" name="mobile_number" value="">
+                        <input type="hidden" id="pp-step2-trxid-input" name="trxid" value="">
+
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
+                            <button type="button" class="btn btn-light px-4 rounded-pill border" onclick="pp_back_to_step1()">Cancel</button>
+                            <button type="submit" id="pp-step2-submit-btn" class="btn px-4 rounded-pill fw-bold text-white payment-form-btn d-flex align-items-center gap-1" style="background: #e2136e !important; border-color: #e2136e !important; color: #ffffff !important;">
+                                <span class="spinner-border spinner-border-sm me-1 text-white" role="status" style="color: #ffffff !important;"></span> Auto verifying...
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <script data-cfasync="false">
+                    function pp_mark_copied(btn) {
+                        if (!btn) return;
+                        const originalHtml = btn.innerHTML;
+                        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> <span>Copied!</span>`;
+                        btn.style.setProperty("background-color", "#16a34a", "important");
+                        setTimeout(() => {
+                            btn.innerHTML = originalHtml;
+                            btn.style.setProperty("background-color", "#e2136e", "important");
+                        }, 2000);
+                    }
+
+                    function pp_check_step1_validity() {
+                        const input = document.getElementById("pp-step1-mobile-input");
+                        const btn = document.getElementById("pp-step1-confirm-btn");
+                        if (!input || !btn) return;
+
+                        // Sanitize to digits only
+                        let val = input.value.replace(/\\D/g, "");
+                        if (input.value !== val) {
+                            input.value = val;
+                        }
+
+                        // Check BD mobile format (starts with 01 and 11 digits total)
+                        const isValid = /^01[3-9]\\d{8}$/.test(val);
+                        if (isValid) {
+                            btn.disabled = false;
+                            btn.style.opacity = "1";
+                            btn.style.cursor = "pointer";
+                            btn.style.setProperty("background-color", "#e2136e", "important");
+                            btn.style.setProperty("border-color", "#e2136e", "important");
+                            btn.style.setProperty("color", "#ffffff", "important");
+                            btn.className = "btn px-4 rounded-pill fw-bold";
+                        } else {
+                            btn.disabled = true;
+                            btn.style.opacity = "0.7";
+                            btn.style.cursor = "not-allowed";
+                            btn.style.setProperty("background-color", "#e9ecef", "important");
+                            btn.style.setProperty("border-color", "#ced4da", "important");
+                            btn.style.setProperty("color", "#6c757d", "important");
+                            btn.className = "btn px-4 rounded-pill fw-bold";
+                        }
+                    }
+
+                    let ppAutoPollInterval = null;
+                    function pp_trigger_auto_verify(isManualSubmit) {
+                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
+                        if (!step2 || step2.style.display === "none") return;
+
+                        const form = step2.querySelector("form.payment-form-submit");
+                        if (!form) return;
+
+                        // Sync manual TrxID if typed
+                        const manualTrx = document.getElementById("pp-manual-trxid-input");
+                        const hiddenTrx = document.getElementById("pp-step2-trxid-input");
+                        if (manualTrx && hiddenTrx) {
+                            hiddenTrx.value = manualTrx.value.trim();
+                        }
+
+                        const formData = new FormData(form);
+                        fetch("", {
+                            method: "POST",
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === "true") {
+                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
+                                if (typeof success === "function") {
+                                    success(data);
+                                } else if (data.redirect_url) {
+                                    window.location.href = data.redirect_url;
+                                } else {
+                                    window.location.reload();
+                                }
+                            } else if (isManualSubmit && data.title === "Waiting for Payment") {
+                                // If manually submitted with wrong/unmatched TrxID, mark form processed and close
+                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
+                                if (typeof success === "function") {
+                                    success({ title: "Submitted", message: "Transaction ID submitted for manual review." });
+                                } else {
+                                    alert("Transaction ID submitted for manual review.");
+                                    window.location.reload();
+                                }
+                            }
+                        })
+                        .catch(err => console.error("Auto verify check:", err));
+                    }
+
+                    function pp_proceed_to_step2() {
+                        const input = document.getElementById("pp-step1-mobile-input");
+                        const val = input ? input.value.trim() : "";
+                        if (!/^01[3-9]\\d{8}$/.test(val)) return;
+
+                        const step1 = document.getElementById("pp-step1-account-wrapper");
+                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
+                        const hiddenInput = document.getElementById("pp-step2-mobile-input");
+
+                        if (step1) step1.style.display = "none";
+                        if (step2) step2.style.display = "block";
+                        if (hiddenInput) hiddenInput.value = val;
+
+                        pp_start_countdown();
+
+                        // Trigger immediate check & start auto polling every 3 seconds
+                        pp_trigger_auto_verify();
+                        if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
+                        ppAutoPollInterval = setInterval(pp_trigger_auto_verify, 3000);
+                    }
+
+                    function pp_back_to_step1() {
+                        if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
+                        const step1 = document.getElementById("pp-step1-account-wrapper");
+                        const step2 = document.getElementById("pp-step2-instructions-wrapper");
+                        if (step1) step1.style.display = "block";
+                        if (step2) step2.style.display = "none";
+                    }
+
+                    let ppTimerInterval = null;
+                    function pp_start_countdown() {
+                        if (ppTimerInterval) clearInterval(ppTimerInterval);
+                        let duration = 300; // 5 minutes
+                        const display = document.getElementById("pp-timer");
+
+                        ppTimerInterval = setInterval(function () {
+                            let minutes = parseInt(duration / 60, 10);
+                            let seconds = parseInt(duration % 60, 10);
+
+                            minutes = minutes < 10 ? "0" + minutes : minutes;
+                            seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                            if (display) display.textContent = minutes + ":" + seconds;
+
+                            if (--duration < 0) {
+                                clearInterval(ppTimerInterval);
+                                if (ppAutoPollInterval) clearInterval(ppAutoPollInterval);
+                                if (display) display.textContent = "Expired";
+
+                                // Show manual TrxID input option when timeout occurs
+                                const fallbackWrapper = document.getElementById("pp-trxid-fallback-wrapper");
+                                const submitBtn = document.getElementById("pp-step2-submit-btn");
+                                if (fallbackWrapper) fallbackWrapper.style.display = "block";
+                                if (submitBtn) {
+                                    submitBtn.innerHTML = "Verify Transaction ID";
+                                    submitBtn.style.background = "#e2136e";
+                                }
+
+                                const manualInput = document.getElementById("pp-manual-trxid-input");
+                                if (manualInput) {
+                                    manualInput.addEventListener("change", function() {
+                                        const hiddenTrx = document.getElementById("pp-step2-trxid-input");
+                                        if (hiddenTrx) hiddenTrx.value = this.value.trim();
+                                        if (this.value.trim().length >= 8) {
+                                            pp_trigger_auto_verify(true);
+                                        }
+                                    });
+                                }
+                            }
+                        }, 1000);
+                    }
+
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const input = document.getElementById("pp-step1-mobile-input");
+                        if (input) {
+                            input.addEventListener("keyup", pp_check_step1_validity);
+                            input.addEventListener("paste", function() {
+                                setTimeout(pp_check_step1_validity, 50);
+                            });
+                            pp_check_step1_validity();
+                        }
+                    });
+                </script>
+                ';
+            } else {
+                if(isset($instructions)){
+                    echo '<ol class="payment-instructions">';
+
+                    $rowli = 0;
+
+                    foreach ($instructions as $step) {
+                        $rowli = $rowli+1;
+
+                        // Resolve language directly
+                        $text = $lang[$step['text']] ?? $step['text'];
+
+                        // Replace variables
+                        if (!empty($step['vars'])) {
+                            foreach ($step['vars'] as $k => $v) {
+                                $text = str_replace($k, '<span class="dynamic-value">'.$v.'</span>', $text);
+                            }
+                        }
+
+                        echo '<li class="li-'.$rowli.'">';
+                        echo ($step['icon'] == "") ? '<div class="dot"></div>' : $step['icon'];
+
+                        echo '<p>';
+                        echo $text;
+
+                        /* Copy button */
+                        if (!empty($step['copy']) && isset($step['value'])) {
+                            echo ' <span class="button-icon"
+                                onclick="copy_value(\'' . htmlspecialchars($step['value'], ENT_QUOTES) . '\')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/>
+                                    <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/>
+                                </svg>
+                            </span>';
+                        }
+
+                        /* Action button */
+                        if (!empty($step['action'])) {
+                            $action = $step['action'];
+
+                            if ($action['type'] === 'image' && !empty($action['value'])) {
+                                echo ' <span class="button-icon"
+                                    onclick="pp_show_image(\''.htmlspecialchars($action['value'], ENT_QUOTES).'\')">
+                                    '.$action['label'].'
+                                </span>';
+                            }else{
+                                echo '<style>.li-'.$rowli.'{display: none !important;}</style>';
+                            }
+                        }
+
+                        echo '</p>';
+                        echo '</li>';
+
+                    }
+
+                    echo '</ol>';
+
+                    echo '
+                        <div id="pp-image-modal" class="pp-modal" style="display:none;">
+                            <div class="pp-modal-content">
+                                <span class="pp-close" onclick="pp_close_image()">&times;</span>
+                                <div class="pp-model-image-b"><img id="pp-modal-image" src="" alt="Preview"></div>
+                            </div>
+                        </div>
+
+                        <script data-cfasync="false">
+                            function pp_show_image(src) {
+                                const modal = document.getElementById("pp-image-modal");
+                                const img = document.getElementById("pp-modal-image");
+
+                                img.src = src;
+                                modal.style.display = "flex";
+                            }
+
+                            function pp_close_image() {
+                                document.getElementById("pp-image-modal").style.display = "none";
+                            }
+                        </script>
+                    ';
+                }
+
+                if(isset($gateway_info)){
+                    if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation" && $vMethodCheck !== 'phone_number'){
+                        $inputFieldHtml = '
+                            <div class="form-group mt-3">
                                 <label class="form-label">'.$data['lang']['transaction_id'].'</label>
                                 <div class="form-control-wrap">
                                     <input type="text" class="form-control" name="trxid" placeholder="'.$data['lang']['enter_transaction_id'].'" required=""> 
                                 </div>
-                            </div>
+                            </div>';
 
-                            <button class="btn btn-primary w-100 payment-form-btn mt-3" type="submit">'.$data['lang']['verify'].'</button>
-                        </form>
+                        echo '
+                            <form class="payment-form-submit" method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="action-v2" value="transaction-verify">
+                                <input type="hidden" name="gateway-id" value="'.$data['gateway']['gateway_id'].'">
+                                <input type="hidden" name="transaction-id" value="'.$data['transaction']['ref'].'">
 
-                        <script data-cfasync="false">
-                            document.addEventListener("DOMContentLoaded", function() {
-                                const form = document.querySelector(".payment-form-submit");
-                                const mobileWrapper = form.querySelector(`.form-group[style*="display: none"]`);
-                                const submitBtn = form.querySelector(".payment-form-btn");
+                                '.$inputFieldHtml.'
 
-                                form.addEventListener("submit", function(e) {
-                                    e.preventDefault();
-
-                                    const formData = new FormData(form);
-
-                                    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>`;
-
-                                    fetch("", { // replace "" with your PHP AJAX URL if needed
-                                        method: "POST",
-                                        body: formData
-                                    })
-                                    .then(res => res.json())
-                                    .then(data => {
-                                        submitBtn.innerHTML = `'.$data['lang']['verify'].'`;
-
-                                        if(data.status === "true") {
-                                            // Verified successfully
-                                            success(data); // pass data if needed
-                                        } else if(data.status === "false") {
-                                            // Failed verification
-                                            if(data.visible_number && data.visible_number === "true") {
-                                                mobileWrapper.style.display = "block";
-                                            }
-                                            // Call failed handler with title & message
-                                            failed(data.title, data.message);
-                                        } else {
-                                            // Unexpected response
-                                            failed("Unexpected Response", "Please try again later.");
-                                        }
-                                    })
-                                    .catch(err => {
-                                        submitBtn.innerHTML = `'.$data['lang']['verify'].'`;
-                                        console.error(err);
-                                        failed("Request Error", "Something went wrong. Please try again.");
-                                    });
-                                });
-                            });
-
-                        </script>
-
-                    ';
+                                <button class="btn btn-primary w-100 payment-form-btn mt-3" type="submit">'.$data['lang']['verify'].'</button>
+                            </form>
+                        ';
+                    }
                 }
+            }
+            echo '</div>';
                 if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "manual"){
                     if(isset($gateway_info['verify_by']) && $gateway_info['verify_by'] == "trxid"){
                         echo '
@@ -3079,7 +3344,6 @@
                         }
                     }
                 }
-            }
 
             if(isset($_GET['pp_callback'])){
                 if (is_callable([$gateway, 'callback'])) {

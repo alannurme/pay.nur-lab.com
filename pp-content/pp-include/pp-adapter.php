@@ -8885,7 +8885,67 @@ aa021689e729dc2302b47e9bdc7d1a9f8b72f95f01530da35bf3b848b188d5b1
                                         $all_transactions = [];
 
                                         if(isset($gateway_info['gateway_type']) && $gateway_info['gateway_type'] == "automation"){
+                                            $vMethod = $options['verification_method'] ?? 'trx_id';
                                             $trxid = escape_string($_POST['trxid'] ?? '');
+                                            $mobile_number = escape_string($_POST['mobile_number'] ?? '');
+
+                                            if ($vMethod === 'phone_number' || ($mobile_number != '' && $trxid == '')) {
+                                                if($mobile_number == ""){
+                                                    echo json_encode(['status' => "false", 'title' => 'Missing Account Number', 'message' => 'Please enter a valid sender account number.']);
+                                                    exit();
+                                                }
+
+                                                $last10 = substr(preg_replace('/\D/', '', $mobile_number), -10);
+                                                $with88 = '880' . $last10;
+                                                $withPlus88 = '+880' . $last10;
+                                                $withZero = '0' . $last10;
+
+                                                // Support sender keys for bKash, Nagad, Rocket, Upay
+                                                $senderKeyList = [$gateway_info['sender_key']];
+                                                if ($gateway_info['sender_key'] === 'rocket') {
+                                                    $senderKeyList[] = '16216';
+                                                }
+
+                                                // Strictly match SMS received after transaction was created (-2 minutes margin for minor clock difference)
+                                                $txnCreatedDate = date('Y-m-d H:i:s', strtotime(($response_transaction['response'][0]['created_date'] ?? date('Y-m-d H:i:s')) . ' -2 minutes'));
+                                                $params = [ 
+                                                    ':num1'       => $mobile_number, 
+                                                    ':num2'       => $withZero,
+                                                    ':num3'       => $with88,
+                                                    ':num4'       => $withPlus88,
+                                                    ':status'     => 'approved',
+                                                    ':tdate'      => $txnCreatedDate
+                                                ];
+                                                
+                                                $senderKeyCond = "sender_key IN ('" . implode("','", array_map('escape_string', $senderKeyList)) . "')";
+                                                $response_pending_SMSTransaction = json_decode(getData($db_prefix.'sms_data','WHERE ' . $senderKeyCond . ' AND (number = :num1 OR number = :num2 OR number = :num3 OR number = :num4) AND status = :status AND created_date >= :tdate ORDER BY id DESC', '* FROM', $params), true);
+
+                                                $matchedSms = null;
+                                                if($response_pending_SMSTransaction['status'] == true && !empty($response_pending_SMSTransaction['response'])){
+                                                    $response_brand_check = json_decode(getData($db_prefix.'brands',' WHERE brand_id ="'.$response_transaction['response'][0]['brand_id'].'"'),true);
+                                                    $tolerance = $response_brand_check['response'][0]['payment_tolerance'] ?? 0;
+
+                                                    foreach($response_pending_SMSTransaction['response'] as $smsRow){
+                                                        if (verifyPaymentTolerance($convertedAmount, $smsRow['amount'], $tolerance)) {
+                                                            $matchedSms = $smsRow;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+
+                                                if($matchedSms !== null){
+                                                    $trxid = $matchedSms['trx_id'];
+                                                } else {
+                                                    // Save transaction as pending with sender number while waiting for auto-verify SMS
+                                                    $columns = ['processing_fee', 'discount_amount', 'local_net_amount', 'local_currency', 'gateway_id', 'sender_key', 'status', 'sender', 'updated_date'];
+                                                    $values = [money_sanitize($totalProcessingFee), money_sanitize($totalDiscount), money_sanitize($convertedAmount), $response_gateway['response'][0]['currency'], $gateway_id, $gateway_info['sender_key'], 'pending', $mobile_number, getCurrentDatetime('Y-m-d H:i:s')];
+                                                    $condition = 'id ="'.$response_transaction['response'][0]['id'].'"';
+                                                    updateData($db_prefix.'transaction', $columns, $values, $condition);
+
+                                                    echo json_encode(['status' => "false", 'title' => 'Waiting for Payment', 'message' => 'Payment SMS not received yet. Please complete the Send Money transaction and wait a moment.']);
+                                                    exit();
+                                                }
+                                            }
 
                                             if($trxid == ""){
                                                 echo json_encode(['status' => "false", 'title' => 'Missing Transaction ID', 'message' => 'The Transaction ID field cannot be empty. Please provide a valid Transaction ID.']);

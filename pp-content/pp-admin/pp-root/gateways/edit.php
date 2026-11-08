@@ -65,6 +65,18 @@
                             'placeholder' => 'Enter mobile number'
                         ];
                         $extraFields[] = [
+                            'name'  => 'verification_method',
+                            'label' => 'Payment Verification Method',
+                            'type'  => 'select',
+                            'options' => [
+                                'trx_id' => 'Verify using Transaction ID (Customer enters TrxID manually)',
+                                'phone_number' => 'Verify using Phone Number (Customer inputs Sender Number & SMS Auto-verifies)',
+                            ],
+                            'value' => 'trx_id',
+                            'required' => true,
+                            'multiple' => false,
+                        ];
+                        $extraFields[] = [
                             'name'  => 'pending_payment',
                             'label' => 'Allow Pending Payment?',
                             'type'  => 'select',
@@ -451,7 +463,7 @@
                                                         </div>
                                                     </div>
 
-                                                    <div class="border rounded p-2 mt-2 d-flex align-items-center justify-content-center" style=" height: 90px; max-width: 300px; ">
+                                                    <div class="border rounded p-2 mt-2 d-flex align-items-center justify-content-center" style=" min-height: 180px; max-height: 260px; max-width: 260px; background: #fff; ">
                                                         <img src="'.$value.'" accept="image/*" alt="" id="'.$field['name'].'" style=" max-width: 100%; max-height: 100%; ">
                                                     </div>
                                                 ';

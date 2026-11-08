@@ -122,7 +122,7 @@
             border-bottom: none;
         }
 
-        .bp-modal {
+        .bp-modal, .pp-modal {
             position: fixed;
             inset: 0;
             background: rgb(86 85 85 / 13%);
@@ -134,7 +134,7 @@
             padding: 15px;
         }
 
-        .bp-modal-content {
+        .bp-modal-content, .pp-modal-content {
             position: relative;
             background: #FFFFFF;
             border-radius: 5px;
@@ -145,18 +145,18 @@
             animation: bpZoomIn 0.25s ease-out;
         }
 
-        .bp-model-image-b{
+        .bp-model-image-b, .pp-model-image-b {
             margin: 20px;
         }
 
-        #bp-modal-image {
+        #bp-modal-image, #pp-modal-image {
             display: block;
-            max-width: 300px;
+            max-width: 340px;
             border-radius: 10px;
             width: 100%;
         }
 
-        .bp-close {
+        .bp-close, .pp-close {
             position: absolute;
             top: -12px;
             right: -12px;

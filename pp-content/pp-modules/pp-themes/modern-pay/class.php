@@ -712,7 +712,15 @@
 
             if($data['transaction']['status'] == "initiated"){
                 if(isset($_GET['gateway'])){
-                    include(__DIR__.'/gateway.php');
+                    global $db_prefix;
+                    $p = [':gateway_id' => $_GET['gateway'], ':brand_id' => $data['brand']['id']];
+                    $r = json_decode(getData($db_prefix.'gateways', 'WHERE gateway_id = :gateway_id AND brand_id = :brand_id AND status = "active"', 'slug FROM', $p), true);
+                    $slug = ($r['status'] && isset($r['response'][0]['slug'])) ? $r['response'][0]['slug'] : '';
+                    if ($slug === 'bangla-qr' && file_exists(__DIR__ . '/../zenith-core/qr-gateway.php')) {
+                        include __DIR__ . '/../zenith-core/qr-gateway.php';
+                    } else {
+                        include(__DIR__.'/gateway.php');
+                    }
                 }else{
                     include(__DIR__.'/checkout.php');
                 }
