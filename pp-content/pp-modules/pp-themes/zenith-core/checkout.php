@@ -613,7 +613,7 @@ a:hover{color:var(--p)}
 
 <?php echo pp_assets('footer'); ?>
 <script data-cfasync="false">
-var HZ_URL=<?php echo json_encode(pp_checkout_address()); ?>;
+var HZ_URL=<?php echo json_encode(pp_checkout_address($data['transaction']['ref'] ?? '')); ?>;
 var HZ_CANCEL=HZ_URL+'?cancel';
 
 var hzCurrentSp=null,hzSelectedGwId=null;

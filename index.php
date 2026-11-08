@@ -1044,6 +1044,20 @@
                     case $path_payment:
                         $paymentID = $param1;
 
+                        if (empty($paymentID) && !empty($_SESSION['pp_active_payment_ref'])) {
+                            $targetUrl = rtrim(pp_site_address(), '/') . '/' . trim($path_payment, '/') . '/' . $_SESSION['pp_active_payment_ref'];
+                            if (!empty($_SERVER['QUERY_STRING'])) {
+                                $targetUrl .= '?' . $_SERVER['QUERY_STRING'];
+                            }
+                            header("Location: " . $targetUrl, true, 302);
+                            exit();
+                        }
+
+                        if (!empty($paymentID)) {
+                            $_SESSION['pp_active_payment_ref'] = $paymentID;
+                            pp_checkout_address($paymentID);
+                        }
+
                         $params = [ ':ref' => $paymentID ];
 
                         $response_transaction = json_decode(getData($db_prefix.'transaction','WHERE ref = :ref', '* FROM', $params),true);

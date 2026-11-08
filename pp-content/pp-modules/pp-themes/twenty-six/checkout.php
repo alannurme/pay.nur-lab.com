@@ -174,7 +174,7 @@
                         if ($pp_gateways_mfs['status'] === true && !empty($pp_gateways_mfs['gateway'])) {
                             foreach($pp_gateways_mfs['gateway'] as $row){
                     ?>
-                                <div class="col-6 col-md-4" style="cursor: pointer" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                <div class="col-6 col-md-4" style="cursor: pointer" onclick="location.href='<?php echo pp_checkout_address($data['transaction']['ref'] ?? '')?>?gateway=<?php echo $row['gateway_id']?>'">
                                     <div class="border rounded">
                                         <div style="height: 70px;display: flex;align-items: center;justify-content: center;">
                                             <img src="<?php echo $row['logo']?>" alt="" class="img-fluid mb-2" style="max-width: 100px;max-height: 40px;margin: 0 !important;">
@@ -205,7 +205,7 @@
                         if ($pp_gateways_bank['status'] === true && !empty($pp_gateways_bank['gateway'])) {
                             foreach($pp_gateways_bank['gateway'] as $row){
                     ?>
-                                <div class="col-6 col-md-4" style="cursor: pointer" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                <div class="col-6 col-md-4" style="cursor: pointer" onclick="location.href='<?php echo pp_checkout_address($data['transaction']['ref'] ?? '')?>?gateway=<?php echo $row['gateway_id']?>'">
                                     <div class="border rounded">
                                         <div style="height: 70px;display: flex;align-items: center;justify-content: center;">
                                             <img src="<?php echo $row['logo']?>" alt="" class="img-fluid mb-2" style="max-width: 100px;max-height: 40px;margin: 0 !important;">
@@ -236,7 +236,7 @@
                         if ($pp_gateways_global['status'] === true && !empty($pp_gateways_global['gateway'])) {
                             foreach($pp_gateways_global['gateway'] as $row){
                     ?>
-                                <div class="col-6 col-md-4" style="cursor: pointer" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                <div class="col-6 col-md-4" style="cursor: pointer" onclick="location.href='<?php echo pp_checkout_address($data['transaction']['ref'] ?? '')?>?gateway=<?php echo $row['gateway_id']?>'">
                                     <div class="border rounded">
                                         <div style="height: 70px;display: flex;align-items: center;justify-content: center;">
                                             <img src="<?php echo $row['logo']?>" alt="" class="img-fluid mb-2" style="max-width: 100px;max-height: 40px;margin: 0 !important;">

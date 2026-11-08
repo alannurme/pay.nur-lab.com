@@ -342,6 +342,10 @@ binance-personal",
 
         public function renderCheckout($data)
         {
+            if (!empty($data['transaction']['ref'])) {
+                pp_checkout_address($data['transaction']['ref']);
+            }
+
             // Only allow receipt/invoice view on non-initiated transactions
             if (isset($_GET['view_receipt']) && $data['transaction']['status'] !== 'initiated') {
                 include __DIR__ . '/receipt.php'; return;

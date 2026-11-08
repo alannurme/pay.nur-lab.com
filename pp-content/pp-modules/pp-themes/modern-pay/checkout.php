@@ -643,7 +643,7 @@
                             foreach($pp_gateways_mfs['gateway'] as $row){
                     ?>
                                 <div class="col-6 col-sm-4">
-                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address($data['transaction']['ref'] ?? '')?>?gateway=<?php echo $row['gateway_id']?>'">
                                         <div class="mp-gateway-logo-container">
                                             <img src="<?php echo $row['logo']?>" alt="<?php echo htmlspecialchars($row['display'])?>" class="mp-gateway-logo">
                                         </div>
@@ -663,7 +663,7 @@
                             foreach($pp_gateways_bank['gateway'] as $row){
                     ?>
                                 <div class="col-6 col-sm-4">
-                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address($data['transaction']['ref'] ?? '')?>?gateway=<?php echo $row['gateway_id']?>'">
                                         <div class="mp-gateway-logo-container">
                                             <img src="<?php echo $row['logo']?>" alt="<?php echo htmlspecialchars($row['display'])?>" class="mp-gateway-logo">
                                         </div>
@@ -683,7 +683,7 @@
                             foreach($pp_gateways_global['gateway'] as $row){
                     ?>
                                 <div class="col-6 col-sm-4">
-                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address()?>?gateway=<?php echo $row['gateway_id']?>'">
+                                    <div class="mp-gateway-card" onclick="location.href='<?php echo pp_checkout_address($data['transaction']['ref'] ?? '')?>?gateway=<?php echo $row['gateway_id']?>'">
                                         <div class="mp-gateway-logo-container">
                                             <img src="<?php echo $row['logo']?>" alt="<?php echo htmlspecialchars($row['display'])?>" class="mp-gateway-logo">
                                         </div>

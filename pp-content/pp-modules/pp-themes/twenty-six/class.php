@@ -719,6 +719,10 @@
 
         public function renderCheckout($data = [])
         {
+            if (!empty($data['transaction']['ref'])) {
+                pp_checkout_address($data['transaction']['ref']);
+            }
+
             if($data['transaction']['status'] == "initiated"){
                 if(isset($_GET['gateway'])){
                     include(__DIR__.'/gateway.php');

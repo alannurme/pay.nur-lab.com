@@ -2052,15 +2052,31 @@
     }
 
     function pp_checkout_address($paymentid = ''){
-        global $path_payment, $paymentID124123412;
+        global $path_payment, $paymentID, $paymentID124123412, $param1;
+        static $cachedPaymentId = '';
 
-        if($paymentid !== ""){
-            $paymentID124123412 = $paymentid ?? '';
-        }else{
-           $paymentID124123412 = $paymentID124123412 ?? '';
+        if (!empty($paymentid)) {
+            $cachedPaymentId = (string)$paymentid;
+            $paymentID124123412 = $cachedPaymentId;
+            $paymentID = $cachedPaymentId;
+        } elseif (!empty($cachedPaymentId)) {
+            // Already cached in this request
+        } elseif (!empty($paymentID)) {
+            $cachedPaymentId = (string)$paymentID;
+        } elseif (!empty($paymentID124123412)) {
+            $cachedPaymentId = (string)$paymentID124123412;
+        } elseif (!empty($GLOBALS['paymentID'])) {
+            $cachedPaymentId = (string)$GLOBALS['paymentID'];
+        } elseif (!empty($param1)) {
+            $cachedPaymentId = (string)$param1;
+        } elseif (!empty($GLOBALS['param1'])) {
+            $cachedPaymentId = (string)$GLOBALS['param1'];
+        } elseif (!empty($_SESSION['pp_active_payment_ref'])) {
+            $cachedPaymentId = (string)$_SESSION['pp_active_payment_ref'];
         }
 
-        return pp_site_address().$path_payment.'/'.$paymentID124123412;
+        $base = rtrim(pp_site_address(), '/') . '/' . trim($path_payment ?? 'payment', '/');
+        return !empty($cachedPaymentId) ? ($base . '/' . $cachedPaymentId) : ($base . '/');
     }
 
     function pp_hexToRgba($hex, $opacity = 1) {
